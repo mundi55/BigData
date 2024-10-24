@@ -1,0 +1,121 @@
+---
+title: "Untitled"
+author: "Mundi"
+date: "2024-10-10"
+output: beamer_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+This is an R Markdown presentation. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+
+## Slide with Bullets
+
+- Bullet 1
+- Bullet 2
+- Bullet 3
+
+## Slide with R Output
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(corrplot)
+library(skimr)
+library(tidyr)
+```
+
+## Slide with Plot
+
+```{r}
+load("C:/Users/Milan/Downloads/allgreD.RData")
+load("C:/Users/Milan/Downloads/allgreI.RData")
+load("C:/Users/Milan/Downloads/allgreM.RData")
+```
+
+```{r}
+skim(allgreD)
+```
+
+```{r}
+skim(allgreI)
+
+```
+```{r}
+skim(allgreM)
+```
+
+
+```{r}
+summary(allgreI)
+
+
+```
+
+```{r}
+summary(allgreM)
+```
+```{r}
+# Function to return the class or type of each column
+column_types <- function(allgreD) {
+  sapply(allgreD, function(column) class(column)[1])
+}
+
+# Get the type for each column
+column_types(allgreD)
+```
+```{r}
+head(allgreI$nbd)
+sum(is.na(allgreI$nbd))
+
+ggplot(allgreI, aes(x = nbd)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+  labs(title = "Verdeling van de variabele 'nbd'", x = "nbd", y = "Frequentie")
+```
+```{r}
+# Zorg ervoor dat dplyr geladen is
+library(dplyr)
+
+# Creëer de nieuwe variabele 'immobil' op basis van de waarde van 'nbd'
+allgreI <- allgreI %>%
+  mutate(immobil = ifelse(nbd == 0, 1, 0))
+
+# Controleer de eerste paar rijen om te zien of de variabele goed is aangemaakt
+allgreI[, c("nbd", "immobil")]
+
+# Tel het aantal rijen waar immobil gelijk is aan 1
+sum(allgreI$immobil == 1)
+
+
+```
+
+```{r}
+allgreI[, c("X", "Y", "Z")]  # Vervang door de juiste kolomnamen als nodig
+
+```
+```{r}
+allgreI_clean <- na.omit(allgreI)
+allgreI$Z[is.na(allgreI$Z)] <- mean(allgreI$Z, na.rm = TRUE)
+allgreI$Y <- as.factor(allgreI$Y)  # Voor logistische regressie
+allgreI$X <- as.numeric(allgreI$X)
+allgreI$Z <- as.numeric(allgreI$Z)
+```
+
+```{r}
+# Logistische regressie: Y is binaire uitkomst, X en Z zijn predictorvariabelen
+model <- glm(Y ~ X + Z, data = allgreI, family = binomial)
+
+# Bekijk de samenvatting van het model
+summary(model)
+
+```
+## Conclusion: The younger people are, the more immobile they are, number of cars is irrelevant, only a small part of the variability is declared in this model
+
