@@ -109,6 +109,6 @@ str(allgreI_filtered)
 # Now we save the manipulated data into a new RData file to work with in the modeling
 ```{r}
 # Save the transformed dataset to an RData file
-save(data, file = "AllgreI_filtered.RData")
+save(allgreI_filtered, file = "allgreI_filtered.RData")
 ```
 
