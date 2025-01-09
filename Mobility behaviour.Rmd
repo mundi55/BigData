@@ -1,0 +1,450 @@
+---
+title: "Mobility behaviour"
+output: html_document
+date: "2025-01-06"
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE)
+# Required Packages
+library(ggplot2)     # For data visualization
+library(dplyr)       # For data manipulation (e.g., mutate, rename)
+library(tidyr)       # For data tidying (e.g., handling missing values)
+library(skimr)       # For quick data summaries
+
+```
+
+## Loading and exploring
+
+
+```{r cars}
+# Load the necessary dataset
+load("C:/Users/Milan/Downloads/allgreI.RData")
+
+# Check the structure of the dataset
+str(allgreI)
+
+# Summary of the dataset
+summary(allgreI)
+head(allgreI)
+skim(allgreI)
+
+# Check for missing values
+sapply(allgreI, function(x) sum(is.na(x)))
+
+# View the distribution of the variable `nbd` (number of trips)
+table(allgreI$nbd)
+
+# Visualize the distribution of `nbd`
+library(ggplot2)
+ggplot(allgreI, aes(x = nbd)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+  labs(title = "Distribution of Number of Trips (nbd)", x = "Number of Trips", y = "Frequency")
+
+```
+# If we want to clean all of the data, optional
+
+```{r}
+# Identify missing values per variable, also percentage wise
+
+
+# Count missing values for each variable
+missing_values <- sapply(allgreI_clean, function(x) sum(is.na(x)))
+
+# Display variables with missing values
+missing_values[missing_values > 0]
+
+# Alternatively, show percentage of missing values
+missing_percent <- sapply(allgreI_clean, function(x) mean(is.na(x)) * 100)
+missing_percent[missing_percent > 0]
+
+# Identify variables with less than 10% missing values
+missing_percent <- sapply(allgreI_clean, function(x) mean(is.na(x)) * 100)
+vars_less_10 <- names(missing_percent[missing_percent > 0 & missing_percent <= 10])
+
+# Calculate the number of rows remaining after removing rows with missing values in these variables
+rows_remaining <- nrow(allgreI_clean[complete.cases(allgreI_clean[vars_less_10]), ])
+
+# Print the result
+cat("Number of rows remaining after removing rows with missing values in variables with <10% missing values:", 
+    rows_remaining, "out of", nrow(allgreI_clean), "\n")
+
+# we can delete these rows
+# these variables are: TEL_PORT, mail, permis, etabscol, OCCU1, OCCU2, csp, ABO_TC, fqvelo, FQ2R1, FQ2R2, fqvpcond, fqvppass, freqtcu, freqtram, freqrurb, freqtransisere, freqter, statut2
+
+# Remove rows with missing values in variables with <10% missing values
+allgreI_clean <- allgreI_clean[complete.cases(allgreI_clean[vars_less_10]), ]
+
+# Confirm remaining rows
+cat("Number of rows after removing rows with missing values:", nrow(allgreI_clean), "\n")
+
+# 10% - 50% -> we start by using the medium, but later we will check whether they are relevant, to see what the best way of handling these is
+# these variable are: btt (16.3%), travdom (35.2%), zonetrav (37.6%)
+
+# For numerical variable `btt`: Impute missing values with the median
+allgreI_clean$btt[is.na(allgreI_clean$btt)] <- median(allgreI_clean$btt, na.rm = TRUE)
+
+# Helper function to calculate the mode for categorical variables
+mode_impute <- function(x) {
+  uniq_vals <- na.omit(x)
+  return(uniq_vals[which.max(tabulate(match(uniq_vals, uniq_vals)))])
+}
+
+# For categorical variable `travdom`: Impute missing values with the mode
+allgreI_clean$travdom[is.na(allgreI_clean$travdom)] <- mode_impute(allgreI_clean$travdom)
+
+# For categorical variable `zonetrav`: Impute missing values with the mode
+allgreI_clean$zonetrav[is.na(allgreI_clean$zonetrav)] <- mode_impute(allgreI_clean$zonetrav)
+
+# Optional: Verify that there are no more missing values in these variables
+sapply(allgreI_clean[, c("btt", "travdom", "zonetrav")], function(x) sum(is.na(x)))
+
+# >50% -> exclude
+# these variable are: VAL_ABO (78%), dispovp (56.4%), PBM_STAT (68.3%), STAT_TRAV (88.1%), situveil (90.9%)
+
+# Drop columns with more than 50% missing data
+missing_percent <- sapply(allgreI_clean, function(x) mean(is.na(x)) * 100)
+allgreI_clean <- allgreI_clean[, missing_percent <= 50]
+
+# Count the total missing values for each variable
+missing_values <- sapply(allgreI_clean, function(x) sum(is.na(x)))
+
+# Display variables with missing values (should return an empty result if all missing values are treated)
+missing_values[missing_values > 0]
+
+# Alternatively, show the percentage of missing values
+missing_percent <- sapply(allgreI_clean, function(x) mean(is.na(x)) * 100)
+
+# Display variables with missing percentages greater than 0
+missing_percent[missing_percent > 0]
+
+summary(allgreI_clean)
+
+# Check distributions of key variables
+table(allgreI_clean$nbd)        # Distribution of number of trips
+table(allgreI_clean$immobil)    # Consistency of immobility variable
+
+cat("Number of rows:", nrow(allgreI_clean), "\n")
+cat("Number of columns:", ncol(allgreI_clean), "\n")
+
+```
+
+## Creating the immobil variable
+
+```{r pressure, echo=FALSE}
+# Create a new variable 'immobil': 1 if `nbd` = 0 (immobile), otherwise 0
+allgreI <- allgreI %>%
+  mutate(immobil = ifelse(nbd == 0, 1, 0))
+
+# Check if the variable was created correctly
+table(allgreI$immobil)
+
+```
+
+```{r}
+# Distribution of 'immobil'
+table(allgreI$immobil)
+
+# Percentage distribution
+prop.table(table(allgreI$immobil)) * 100
+
+# Visualization of 'immobil'
+library(ggplot2)
+ggplot(allgreI, aes(x = factor(immobil))) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Mobility Behavior", x = "Immobile (1 = Yes, 0 = No)", y = "Count")
+
+```
+# Now let's look at age
+```{r}
+# Summary statistics
+summary(allgreI$age)
+
+# Histogram of age
+ggplot(allgreI, aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "blue", color = "black") +
+  labs(title = "Distribution of Age", x = "Age", y = "Frequency")
+
+```
+# Relationship between age and immobil
+```{r}
+# Boxplot of age by immobil
+ggplot(allgreI, aes(x = factor(immobil), y = age)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Age vs Mobility Behavior", x = "Immobile (1 = Yes, 0 = No)", y = "Age")
+
+```
+# Now we look at VP_dispo
+```{r}
+colnames(allgreI)[colnames(allgreI) == "dispovp"] <- "VP_DISPO"
+
+# Replace NA values in VP_DISPO with 0
+allgreI$VP_DISPO[is.na(allgreI$VP_DISPO)] <- 0
+
+# Confirm that there are no NA values in VP_DISPO
+sum(is.na(allgreI$VP_DISPO))
+
+
+# Summary statistics
+table(allgreI$VP_DISPO)
+
+# Barplot of car ownership
+ggplot(allgreI, aes(x = factor(VP_DISPO))) +
+  geom_bar(fill = "orange") +
+  labs(title = "Car Ownership Distribution", x = "Number of Cars", y = "Count")
+
+```
+
+# Relationship between available cars and immobil
+```{r}
+# Barplot of car ownership by mobility behavior
+ggplot(allgreI, aes(x = factor(VP_DISPO), fill = factor(immobil))) +
+  geom_bar(position = "dodge") +
+  labs(title = "Car Ownership vs Mobility Behavior", x = "Number of Cars", y = "Count", fill = "Immobile")
+
+```
+
+```{r}
+# Rename variables
+allgreI <- allgreI %>%
+  rename(Y = immobil, X = age, Z = VP_DISPO)
+```
+```{r}
+# Check for NA values in the renamed variables
+na_check <- sapply(allgreI[, c("X", "Y", "Z")], function(x) sum(is.na(x)))
+print(na_check)
+
+```
+
+# Now we can start doing linear regressions
+```{r}
+# First regression: Y ~ X
+model1 <- lm(Y ~ X, data = allgreI)
+summary(model1)
+
+# Second regression: Y ~ Z
+model2 <- lm(Y ~ Z, data = allgreI)
+summary(model2)
+
+# Third regression: Y ~ X + Z
+model3 <- lm(Y ~ X + Z, data = allgreI)
+summary(model3)
+
+# Fourth regression: Y ~ X * Z (including interaction)
+model4 <- lm(Y ~ X * Z, data = allgreI)
+summary(model4)
+
+```
+# We can see that both variables are significant. Age has a very small negative coëfficiënt. The number of cars has a bigger negative coëfficiënt and declares more of the variability. Their interaction is slightly significant and has a very small negative coëfficiënt.
+
+# Since immobil is a categorical variable, a logistic regression will ofcourse be better suited.
+
+```{r}
+# Controleer het datatype van X en Z
+class(allgreI$X)
+class(allgreI$Z)
+
+# Alternatief: Controleer of X en Z als factor zijn gedefinieerd
+is.factor(allgreI$X)
+is.factor(allgreI$Z)
+
+# Zet X en Z om naar factoren
+allgreI$X <- as.factor(allgreI$X)
+allgreI$Z <- as.factor(allgreI$Z)
+
+# Controleer opnieuw het datatype
+class(allgreI$X)
+class(allgreI$Z)
+
+```
+
+
+```{r}
+
+# First logistic regression: Y ~ X
+logit_model1 <- glm(Y ~ X, data = allgreI, family = binomial)
+summary(logit_model1)
+
+# Second logistic regression: Y ~ Z
+logit_model2 <- glm(Y ~ Z, data = allgreI, family = binomial)
+summary(logit_model2)
+
+```
+# We get similar coëfficients, but now we can see that the AIC for the model with number of cars is lower than the model with only age. The model with both performs slightly better, but this model is less simple. The model with the interaction performs the best of the 4, but is also the most complicated one.
+
+```{r}
+# Controleer de structuur van X
+str(allgreI$X)
+
+# Als X een factor is, zet deze om naar een numerieke variabele
+allgreI$X_numeric <- as.numeric(as.character(allgreI$X))
+
+# Controleer de nieuwe numerieke variabele
+summary(allgreI$X_numeric)
+
+# Maak leeftijdsgroepen aan met de numerieke versie van X
+allgreI <- allgreI %>%
+  mutate(
+    age_group = cut(
+      X_numeric, 
+      breaks = c(0, 16, 20, 60, 75, 85, Inf), # Breaks voor leeftijdsgroepen
+      labels = c("0-16", "16-20", "20-60", "60-75", "75-85", "85+"),
+      right = FALSE # Sluit de bovenste grens uit
+    )
+  )
+
+# Controleer of de nieuwe variabele correct is aangemaakt
+table(allgreI$age_group)
+
+# Zet de nieuwe variabele om naar een factor voor regressie
+allgreI$age_group <- as.factor(allgreI$age_group)
+
+# Verwijder de tijdelijke numerieke variabele als je deze niet meer nodig hebt
+allgreI$X_numeric <- NULL
+
+
+```
+```{r}
+logit_model1 <- glm(Y ~ age_group, data = allgreI, family = binomial)
+summary(logit_model1)
+```
+```{r}
+# Origineel model
+model_full <- glm(Y ~ age_group, family = binomial, data = allgreI)
+
+# Nieuw model met samengevoegde groepen
+allgreI <- allgreI %>%
+  mutate(
+    age_group_combined = case_when(
+      age_group %in% c("25-35", "35-45", "45-55") ~ "25-55",
+      TRUE ~ as.character(age_group)
+    )
+  )
+
+# Zet nieuwe variabele om naar een factor
+allgreI$age_group_combined <- as.factor(allgreI$age_group_combined)
+
+# Nieuw model
+model_reduced <- glm(Y ~ age_group_combined, family = binomial, data = allgreI)
+
+# Likelihood Ratio Test
+anova(model_full, model_reduced, test = "LRT")
+
+```
+```{r}
+logit_model1 <- glm(Y ~ age_group+Z, data = allgreI, family = binomial)
+summary(logit_model1)
+logit_model1 <- glm(Y ~ age_group*Z, data = allgreI, family = binomial)
+summary(logit_model1)
+```
+
+```{r}
+# Remove rows where ABO_TC is NA
+allgreI <- allgreI[!is.na(allgreI$ABO_TC), ]
+
+# Convert ABO_TC to a factor
+allgreI$ABO_TC <- factor(allgreI$ABO_TC, levels = c(1, 2, 3), 
+                         labels = c("Free", "Paid", "None"))
+
+# Check if NAs have been successfully removed
+cat("Unique values in ABO_TC after removing NAs:\n")
+print(levels(allgreI$ABO_TC))
+
+# Show the distribution of ABO_TC without NAs
+cat("\nDistribution of ABO_TC without NAs:\n")
+print(table(allgreI$ABO_TC))
+
+# Visualize the distribution of ABO_TC without NAs
+ggplot(allgreI, aes(x = ABO_TC)) +
+  geom_bar(fill = "steelblue", color = "black") +
+  labs(
+    title = "Distribution of ABO_TC (without NAs)",
+    x = "Type of subscription",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+
+```
+
+```{r}
+logit_model1 <- glm(Y ~ ABO_TC, data = allgreI, family = binomial)
+summary(logit_model1)
+logit_model1 <- glm(Y ~ age_group + ABO_TC + Z, data = allgreI, family = binomial)
+summary(logit_model1)
+```
+
+```{r}
+# Check if cspgroup is already a factor
+if (!is.factor(allgreI$cspgroup)) {
+  # Convert cspgroup to a factor
+  allgreI$cspgroup <- as.factor(allgreI$cspgroup)
+}
+
+# Check the unique levels in cspgroup
+cat("Levels in cspgroup:\n")
+print(levels(allgreI$cspgroup))
+
+# Check the distribution of cspgroup
+cat("\nDistribution of cspgroup:\n")
+print(table(allgreI$cspgroup))
+
+# Check for missing values in csp
+cat("Number of missing values in csp:\n")
+print(sum(is.na(allgreI$cspgroup)))
+
+# Convert csp to a factor (if it is not already)
+if (!is.factor(allgreI$cspgroup)) {
+  allgreI$csp <- as.factor(allgreI$cspgroup)
+}
+
+# Show the distribution of csp
+cat("\nDistribution of csp:\n")
+print(table(allgreI$cspgroup))
+
+# Visualize the distribution of csp
+library(ggplot2)
+ggplot(allgreI, aes(x = csp)) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(
+    title = "Distribution of CSPgroup",
+    x = "CSP Categories",
+    y = "Count"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels for better readability
+
+```
+
+```{r}
+logit_model1 <- glm(Y ~ cspgroup, data = allgreI, family = binomial)
+summary(logit_model1)
+logit_model1 <- glm(Y ~ cspgroup + age_group + Z, data = allgreI, family = binomial)
+summary(logit_model1)
+```
+```{r}
+# Maak een nieuwe variabele waarin niet-significante groepen worden samengevoegd
+allgreI <- allgreI %>%
+  mutate(
+    cspgroup_combined = case_when(
+      cspgroup %in% c("2", "5", "6", "8", "9") ~ "non_significant", # Niet-significante groepen
+      TRUE ~ as.character(cspgroup) # Overige groepen behouden
+    )
+  )
+
+# Zet de nieuwe variabele om in een factor
+allgreI$cspgroup_combined <- as.factor(allgreI$cspgroup_combined)
+
+# Controleer de verdeling van de nieuwe variabele
+cat("Distribution of cspgroup_combined:\n")
+print(table(allgreI$cspgroup_combined))
+
+# Voer een nieuw model uit met de samengevoegde groepen
+logit_model <- glm(Y ~ cspgroup_combined, family = binomial, data = allgreI)
+summary(logit_model)
+
+logit_model1 <- glm(Y ~ cspgroup_combined + age_group + Z, data = allgreI, family = binomial)
+summary(logit_model1)
+```
+
