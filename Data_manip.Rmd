@@ -1,0 +1,108 @@
+---
+title: "Data_manip"
+author: "Mundi"
+date: "2025-01-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Required packaged
+```{r}
+library(ggplot2)     # For data visualization
+library(dplyr)       # For data manipulation (e.g., mutate, rename)
+library(tidyr)       # For data tidying (e.g., handling missing values)
+library(skimr)       # For quick data summaries
+```
+
+## Loading data and skimming
+
+```{r}
+load("allgreI.Rdata")
+skim(allgreI)
+```
+
+# Lets look at the structure of the data
+```{r}
+str(allgreI)
+```
+# Lets add our new variable, immobil to the dataset
+```{r}
+# Create a new variable 'immobil': 1 if `nbd` = 0 (immobile), otherwise 0
+allgreI <- allgreI %>%
+  mutate(immobil = ifelse(nbd == 0, 1, 0))
+
+# Check if the variable was created correctly
+table(allgreI$immobil)
+```
+
+# We will not be using all of these variables so lets only keep the ones we are interested in
+
+```{r}
+# Filter the dataset to include only the specified columns
+allgreI_filtered <- allgreI %>% select(immobil, cspgroup, dispovp, age, sexe)
+
+# Verify the new filtered dataset
+skim(allgreI_filtered)
+```
+
+# We see we have some missing values for dispovp which need to be handled. Since dispovp is never 0 we assume the NA values are to be set as 0 to indicate no available cars in the household.
+
+```{r}
+# Replace NA values in dispovp with 0
+allgreI_filtered$dispovp[is.na(allgreI$dispovp)] <- 0
+
+# Confirm that there are no NA values in VP_DISPO
+sum(is.na(allgreI_filtered$dispovp))
+```
+# Lets rename our main variables to be used for modeling
+
+```{r}
+# Rename variables
+allgreI_filtered <- allgreI_filtered %>%
+  rename(Y = immobil, X = age, Z = dispovp)
+```
+
+# We want change the structure of age to group it instead of using it as a linear integer variable
+```{r}
+# Create age groups using the numeric version of X
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    age_group = cut(
+      X, 
+      breaks = c(0, 16, 20, 60, 75, 85, Inf), # Breakpoints for age groups
+      labels = c("0-16", "16-20", "20-60", "60-75", "75-85", "85+"),
+      right = FALSE # Exclude the upper limit
+    )
+  )
+```
+
+```{r}
+str(allgreI_filtered)
+```
+```{r}
+# Transformations and variable creations
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    # Convert Y to a binary factor with meaningful labels
+    Y = factor(Y, levels = c(0, 1), labels = c("No", "Yes")),
+    
+    # Convert cspgroup from integer to factor
+    cspgroup = factor(cspgroup),
+    
+    # Add a binary variable indicating whether there is at least one car
+    has_car = ifelse(Z > 0, 1, 0),
+    
+    # Convert has_car to a factor for binary interpretation
+    has_car = factor(has_car, levels = c(0, 1), labels = c("No", "Yes")),
+    
+    # Convert sexe to a factor with labels Male and Female
+    sexe = factor(sexe, levels = c(1, 2), labels = c("Male", "Female"))
+  )
+
+# Verify the changes
+str(allgreI_filtered)
+```
+
