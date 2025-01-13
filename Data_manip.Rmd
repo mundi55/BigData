@@ -20,13 +20,20 @@ library(skimr)       # For quick data summaries
 ## Loading data and skimming
 
 ```{r}
-load("allgreI.Rdata")
+load("C:/Users/Milan/Downloads/allgreI.RData")
+load("C:/Users/Milan/Downloads/allgreD.RData")
+load("C:/Users/Milan/Downloads/allgreM.RData")
+
 skim(allgreI)
+skim(allgreD)
+skim(allgreM)
 ```
 
 # Lets look at the structure of the data
 ```{r}
 str(allgreI)
+str(allgreD)
+str(allgreM)
 ```
 # Lets add our new variable, immobil to the dataset
 ```{r}
@@ -110,5 +117,80 @@ str(allgreI_filtered)
 ```{r}
 # Save the transformed dataset to an RData file
 save(allgreI_filtered, file = "allgreI_filtered.RData")
+```
+
+# Now we create a W variable
+# We start by joining the datasets together
+```{r}
+# Datasets samenvoegen op basis van 'id_pers'
+merged_data <- allgreM %>%
+  inner_join(allgreI, by = "id_pers") %>%
+  inner_join(allgreD, by = "id_pers")
+
+# Controleer de eerste paar rijen van de samengevoegde dataset
+head(merged_data)
+```
+# Now we look at the missing values of the relevant variables to create our W variable
+```{r}
+# Analyze missing values in the relevant variables
+missing_summary <- merged_data %>%
+  select(NB_velo, dispovp, ABO_TC, abonpeage, LIEU_STAT) %>%
+  summarise_all(~sum(is.na(.)))
+
+# Print the summary of missing values
+print(missing_summary)
+
+# Visualize the distribution of each variable
+merged_data_long <- merged_data %>%
+  select(NB_velo, dispovp, ABO_TC, abonpeage, LIEU_STAT) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value")
+
+# Plot the distribution per variable
+ggplot(merged_data_long, aes(x = as.factor(Value))) +
+  geom_bar() +
+  facet_wrap(~Variable, scales = "free") +
+  labs(title = "Distribution of Variables",
+       x = "Value",
+       y = "Frequency") +
+  theme_minimal()
+
+# Alternative visualization of missing values with 'naniar' (optional)
+# library(naniar)
+# vis_miss(merged_data %>% select(NB_velo, VP_DISPO, dispovp, ABO_TC, abonpeage, LIEU_STAT))
+
+# New chunk: Convert NA to 0 for 'abonpeage', 'dispovp', and 'LIEU_STAT'
+merged_data <- merged_data %>%
+  mutate(
+    abonpeage = replace_na(abonpeage, 0),
+    dispovp = replace_na(dispovp, 0),
+    LIEU_STAT = replace_na(LIEU_STAT, 0)
+  )
+
+# Check if the conversion was successful
+missing_summary_updated <- merged_data %>%
+  select(abonpeage, dispovp, LIEU_STAT) %>%
+  summarise_all(~sum(is.na(.)))
+
+print(missing_summary_updated)
+
+```
+# Now we create the W variable
+```{r}
+# New chunk: Create variable 'W'
+merged_data <- merged_data %>%
+  mutate(W = ifelse(NB_velo == 0 & dispovp & ABO_TC == 3 & abonpeage == 0 & LIEU_STAT == 0, 0, 1))
+
+# Check the distribution of 'W' with detailed output
+cat("Distribution of W:\n")
+print(table(merged_data$W))
+
+# Plot the distribution of 'W'
+ggplot(merged_data, aes(x = as.factor(W))) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of W",
+       x = "W Value",
+       y = "Frequency") +
+  theme_minimal()
+
 ```
 
