@@ -1,0 +1,99 @@
+---
+title: "Mobility behavior of mobile and immobile people"
+author: "G. Arnarson, F. Bartke, M. van Leare, S. Nguyen"
+date: "`r Sys.Date()`"
+output: beamer_presentation
+theme: "Antibes"
+colortheme: "beaver" 
+header-includes:
+- |
+    \setbeamertemplate{footline}{
+      \leavevmode%
+      \hbox{\hspace*{0.3cm}G. Arnarson, F. Bartke, M. van Leare, S. Nguyen \hfill \hspace*{7cm}\insertframenumber{} / \inserttotalframenumber}%
+      \vskip0pt%
+    }
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Motivation/ Introduction
+
+
+
+## Agenda
+1. Motivation/ Introduction
+\pause
+2. Agenda
+\pause
+3. Problem definition of the project
+\pause
+4. Exploratory Data Analysis
+\pause
+5. Dataset preparation
+\pause
+6. Modeling Techniques
+\pause
+7. Results and Interpretation
+\pause
+8. Challenges and Limitations
+\pause
+9. Conclusion and Outlook
+\pause
+10. Literature used
+\pause
+11. 
+\pause
+
+
+## Problem definition of the project
+
+
+## Exploratory Data Analysis 
+
+-   Bullet 1
+-   Bullet 2
+-   Bullet 3
+
+
+## Dataset preparation 
+
+
+## Modeling Techniques
+Models used for analysis:
+1. Logistic Regression
+2. Decision Trees
+3. Random Forest
+4. Neural Networks 
+
+```{r cars, echo = TRUE}
+summary(cars)
+```
+
+## Results and Interpretation
+
+performance?
+
+```{r pressure}
+plot(pressure)
+```
+
+## Challenges and Limitations
+
+
+
+## Conclusion and Outlook 
+
+
+
+## Thank you for your attention
+
+\LARGE Are there any questions?
+
+
+
+
+
