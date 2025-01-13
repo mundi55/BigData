@@ -1,0 +1,79 @@
+---
+title: "Untitled"
+output: html_document
+date: "2025-01-13"
+---
+
+```{r}
+logit_model1 <- glm(immobil ~ dispovp + age_group, data = allgreI_filtered, family = binomial)
+summary(logit_model1)
+```
+
+```{r}
+logit_model2 <- glm(immobil ~ W, data = allgreI_filtered, family = binomial)
+summary(logit_model2)
+```
+# Adding sex and cspgroup
+```{r}
+logit_model3 <- glm(immobil ~ dispovp + age_group + sexe + cspgroup, data = allgreI_filtered, family = binomial)
+summary(logit_model3)
+```
+
+```{r}
+logit_model4 <- glm(immobil ~ dispovp + age_group + sexe + cspgroup + W, data = allgreI_filtered, family = binomial)
+summary(logit_model4)
+```
+```{r}
+logit_model5 <- glm(immobil ~ dispovp + sexe + W, data = allgreI_filtered, family = binomial)
+summary(logit_model5)
+```
+```{r}
+library(caTools)
+library(ROSE)
+
+# Zet een seed voor reproduceerbaarheid
+set.seed(123)
+
+# Data splitsen in 80% training en 20% test
+split <- sample.split(allgreI_filtered$immobil, SplitRatio = 0.8)
+
+# Maak de trainings- en testsets
+train_data <- subset(allgreI_filtered, split == TRUE)
+test_data <- subset(allgreI_filtered, split == FALSE)
+
+# Oversampling om de data te balanceren
+balanced_train <- ovun.sample(immobil ~ ., data = train_data, method = "over", N = 2 * table(train_data$immobil)[1])$data
+
+# Logistisch regressiemodel trainen met gebalanceerde data (Model 5)
+model_5 <- glm(immobil ~ sexe + dispovp + W, 
+               data = balanced_train, 
+               family = binomial)
+
+# Samenvatting van Model 5
+summary(model_5)
+
+# Voorspellingen maken op de testset
+predictions <- predict(model_5, newdata = test_data, type = "response")
+
+# Zet de waarschijnlijkheden om naar 0/1 (threshold op 0.75)
+predicted_class <- ifelse(predictions > 0.75, "Yes", "No")
+
+# Controleer de unieke waarden in immobil
+levels(test_data$immobil)
+
+# Zet de levels van predicted_class gelijk aan die van test_data$immobil
+predicted_class <- factor(predicted_class, levels = levels(test_data$immobil))
+
+# Controleer de verdeling van predicted_class
+table(predicted_class)
+
+# Confusion Matrix opnieuw berekenen
+conf_matrix <- table(Predicted = predicted_class, Actual = test_data$immobil)
+print(conf_matrix)
+
+# Nauwkeurigheid berekenen
+accuracy <- mean(predicted_class == test_data$immobil, na.rm = TRUE)
+cat("Model 5 Accuracy:", round(accuracy * 100, 2), "%\n")
+
+```
+
