@@ -49,7 +49,7 @@ table(allgreI$immobil)
 
 ```{r}
 # Filter the dataset to include only the specified columns
-allgreI_filtered <- allgreI %>% select(immobil, cspgroup, dispovp, age, sexe)
+allgreI_filtered <- allgreI %>% select(id_pers, immobil, cspgroup, sexe, dispovp, age)
 
 # Verify the new filtered dataset
 skim(allgreI_filtered)
@@ -64,43 +64,38 @@ allgreI_filtered$dispovp[is.na(allgreI$dispovp)] <- 0
 # Confirm that there are no NA values in VP_DISPO
 sum(is.na(allgreI_filtered$dispovp))
 ```
-# Lets rename our main variables to be used for modeling
 
-```{r}
-# Rename variables
-allgreI_filtered <- allgreI_filtered %>%
-  rename(Y = immobil, X = age, Z = dispovp)
-```
 
 # We want change the structure of age to group it instead of using it as a linear integer variable
 ```{r}
-# Create age groups using the numeric version of X
+# Create age groups and remove the 'age' variable
 allgreI_filtered <- allgreI_filtered %>%
   mutate(
     age_group = cut(
-      X, 
-      breaks = c(0, 16, 20, 60, 75, 85, Inf), # Breakpoints for age groups
+      age, 
+      breaks = c(0, 16, 20, 60, 75, 85, Inf),  # Breakpoints for age groups
       labels = c("0-16", "16-20", "20-60", "60-75", "75-85", "85+"),
-      right = FALSE # Exclude the upper limit
+      right = FALSE  # Exclude the upper limit
     )
-  )
-```
+  ) %>%
+  select(-age)  # Remove the 'age' column
 
-```{r}
+# Verify that 'age' has been removed
 str(allgreI_filtered)
+
 ```
 ```{r}
 # Transformations and variable creations
 allgreI_filtered <- allgreI_filtered %>%
   mutate(
     # Convert Y to a binary factor with meaningful labels
-    Y = factor(Y, levels = c(0, 1), labels = c("No", "Yes")),
+    immobil = factor(immobil, levels = c(0, 1), labels = c("No", "Yes")),
     
     # Convert cspgroup from integer to factor
     cspgroup = factor(cspgroup),
     
     # Add a binary variable indicating whether there is at least one car
-    has_car = ifelse(Z > 0, 1, 0),
+    has_car = ifelse(dispovp > 0, 1, 0),
     
     # Convert has_car to a factor for binary interpretation
     has_car = factor(has_car, levels = c(0, 1), labels = c("No", "Yes")),
@@ -178,7 +173,7 @@ print(missing_summary_updated)
 ```{r}
 # New chunk: Create variable 'W'
 merged_data <- merged_data %>%
-  mutate(W = ifelse(NB_velo == 0 & dispovp & ABO_TC == 3 & abonpeage == 0 & LIEU_STAT == 0, 0, 1))
+  mutate(W = ifelse(NB_velo == 0 & dispovp == 0 & ABO_TC == 3 & abonpeage == 0 & LIEU_STAT == 0, 0, 1))
 
 # Check the distribution of 'W' with detailed output
 cat("Distribution of W:\n")
@@ -191,6 +186,38 @@ ggplot(merged_data, aes(x = as.factor(W))) +
        x = "W Value",
        y = "Frequency") +
   theme_minimal()
+
+```
+```{r}
+# Merge 'W' into allgreI_filtered using 'id_pers'
+allgreI_filtered <- allgreI_filtered %>%
+  left_join(merged_data %>% select(id_pers, W), by = "id_pers")
+
+# Verify that 'W' was correctly added
+str(allgreI_filtered)
+
+# Save the updated dataset with 'W' included
+save(allgreI_filtered, file = "allgreI_with_W.RData")
+
+# Optional: View the first few rows to check
+head(allgreI_filtered)
+
+```
+# Check if W is joint well
+```{r}
+# Check for any rows where dispovp > 0 but W is not 1
+invalid_cases <- allgreI_filtered %>%
+  filter(dispovp > 0 & W != 1)
+
+# Display the number of violations
+cat("Number of cases where dispovp > 0 and W is not 1:", nrow(invalid_cases), "\n")
+
+# If any invalid cases exist, display them
+if(nrow(invalid_cases) > 0) {
+  print(invalid_cases)
+} else {
+  cat("Validation passed: W is always 1 when dispovp > 0.\n")
+}
 
 ```
 
