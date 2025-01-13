@@ -107,6 +107,34 @@ allgreI_filtered <- allgreI_filtered %>%
 # Verify the changes
 str(allgreI_filtered)
 ```
+# For cspgroup we group the irrelevant groups (based on logit model 3)
+```{r}
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    cspgroup_combined = case_when(
+      cspgroup %in% c("2", "5", "6", "8", "9") ~ "non_significant", # Niet-significante groepen
+      TRUE ~ as.character(cspgroup) # Overige groepen behouden
+    )
+  )
+
+# Zet de nieuwe variabele om in een factor
+allgreI_filtered$cspgroup_combined <- as.factor(allgreI_filtered$cspgroup_combined)
+
+# Controleer de verdeling van de nieuwe variabele
+cat("Distribution of cspgroup_combined:\n")
+print(table(allgreI_filtered$cspgroup_combined))
+
+# Verwijder 'cspgroup' en voeg 'cspgroup_combined' toe aan allgreI
+allgreI_filtered <- allgreI_filtered %>%
+  select(-cspgroup) %>%    # Verwijder de kolom 'cspgroup'
+  rename(cspgroup = cspgroup_combined)  # Hernoem 'cspgroup_combined' naar 'cspgroup'
+
+# Controleer of de wijziging correct is doorgevoerd
+str(allgreI_filtered)
+
+
+```
+
 
 # Now we save the manipulated data into a new RData file to work with in the modeling
 ```{r}
