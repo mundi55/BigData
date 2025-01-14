@@ -73,8 +73,8 @@ allgreI_filtered <- allgreI_filtered %>%
   mutate(
     age_group = cut(
       age, 
-      breaks = c(0, 16, 20, 60, 75, 85, Inf),  # Breakpoints for age groups
-      labels = c("0-16", "16-20", "20-60", "60-75", "75-85", "85+"),
+      breaks = c(0, 20, 60, Inf),  # Breakpoints for age groups
+      labels = c("0-20", "20-60", "60+"),
       right = FALSE  # Exclude the upper limit
     )
   ) %>%
@@ -147,8 +147,9 @@ save(allgreI_filtered, file = "allgreI_filtered.RData")
 ```{r}
 # Datasets samenvoegen op basis van 'id_pers'
 merged_data <- allgreM %>%
-  inner_join(allgreI, by = "id_pers") %>%
-  inner_join(allgreD, by = "id_pers")
+  inner_join(allgreI, by = c("id_men", "id_pers")) %>%
+  inner_join(allgreD, by = c("id_men", "id_pers", "id_depl"))
+
 
 # Controleer de eerste paar rijen van de samengevoegde dataset
 head(merged_data)
@@ -157,7 +158,7 @@ head(merged_data)
 ```{r}
 # Analyze missing values in the relevant variables
 missing_summary <- merged_data %>%
-  select(NB_velo, dispovp, ABO_TC, abonpeage, LIEU_STAT) %>%
+  select(NB_velo, dispovp, ABO_TC, abonpeage, LIEU_STAT, NB_2Rm) %>%
   summarise_all(~sum(is.na(.)))
 
 # Print the summary of missing values
@@ -201,7 +202,7 @@ print(missing_summary_updated)
 ```{r}
 # New chunk: Create variable 'W'
 merged_data <- merged_data %>%
-  mutate(W = ifelse(NB_velo == 0 & dispovp == 0 & ABO_TC == 3 & abonpeage == 0 & LIEU_STAT == 0, 0, 1))
+  mutate(W = ifelse(NB_velo == 0 & NB_2Rm == 0 & dispovp == 0 & ABO_TC == 3 & abonpeage == 0 & LIEU_STAT == 0, 0, 1))
 
 # Check the distribution of 'W' with detailed output
 cat("Distribution of W:\n")
@@ -249,3 +250,270 @@ if(nrow(invalid_cases) > 0) {
 
 ```
 
+```{r}
+selected_vars <- c("TYPE_HAB", "zoneres.x", "PBM_STAT", "STAT_TRAV", "OCCU1", "travdom", "nb_pers")
+
+# Selectie van de variabelen uit de gejoinede dataset
+filtered_data <- merged_data %>% select(all_of(selected_vars))
+
+# Bekijk de algemene samenvatting van de geselecteerde variabelen
+skim(filtered_data)
+
+# Distributie van elke variabele + aantal ontbrekende waarden visualiseren
+for (var in selected_vars) {
+  print(ggplot(filtered_data, aes_string(x = var)) +
+          geom_bar(na.rm = TRUE, fill = "steelblue") +
+          ggtitle(paste("Distributie van", var)) +
+          theme_minimal())
+  
+  # Aantal missende waarden tonen
+  missing_count <- sum(is.na(filtered_data[[var]]))
+  total_count <- nrow(filtered_data)
+  cat(paste("Variabele:", var, "\nOntbrekende waarden:", missing_count, 
+            "\nPercentage ontbrekend:", round((missing_count / total_count) * 100, 2), "%\n\n"))
+}
+```
+
+```{r}
+# Combineer alle mutaties in één blok
+merged_data <- merged_data %>%
+  mutate(
+    # Vervang NA door 0
+    PBM_STAT = replace_na(PBM_STAT, 0),
+    STAT_TRAV = replace_na(STAT_TRAV, 0),
+    
+    # Zet de geselecteerde variabelen om naar factor (categorisch)
+    TYPE_HAB = as.factor(TYPE_HAB),
+    zoneres.x = as.factor(zoneres.x),
+    OCCU1 = as.factor(OCCU1),
+    travdom = as.factor(travdom),
+    nb_pers = as.factor(nb_pers),
+    
+    # Creëer de binaire variabele 'parking_diff'
+    parking_diff = ifelse(PBM_STAT == 1 | STAT_TRAV == 1, 1, 0)
+  ) %>%
+  select(-PBM_STAT, -STAT_TRAV)  # Verwijder PBM_STAT en STAT_TRAV
+
+# Voeg de aangepaste variabelen toe aan allgreI_filtered via left_join
+allgreI_filtered <- allgreI_filtered %>%
+  left_join(merged_data %>% select(id_pers, TYPE_HAB, zoneres.x, OCCU1, travdom, nb_pers, parking_diff),
+            by = "id_pers")
+
+# Controleer of de variabelen correct zijn toegevoegd
+str(allgreI_filtered)
+
+# Opslaan van de geüpdatete dataset
+save(allgreI_filtered, file = "allgreI_with_new_vars.RData")
+
+# Bekijk een overzicht van de eerste paar rijen
+head(allgreI_filtered)
+
+```
+```{r}
+library(dplyr)
+
+# 1. Vind alle kolommen die eindigen op .x of .y
+suffix_columns <- names(allgreI_filtered)[grepl("\\.x$|\\.y$", names(allgreI_filtered))]
+
+# 2. Loop door alle suffix kolommen en verwerk ze
+for (col in suffix_columns) {
+  # Haal de originele kolomnaam zonder suffix
+  base_col <- gsub("\\.x$|\\.y$", "", col)
+  
+  # Controleer of de kolom zonder suffix al bestaat
+  if (base_col %in% names(allgreI_filtered)) {
+    # Vergelijk de kolommen
+    if (identical(allgreI_filtered[[col]], allgreI_filtered[[base_col]])) {
+      # Als ze identiek zijn, verwijder de .x/.y kolom
+      allgreI_filtered <- allgreI_filtered %>%
+        select(-all_of(col))
+      cat("✅", col, "is identiek aan", base_col, "en is verwijderd.\n")
+    } else {
+      cat("⚠️", col, "verschilt van", base_col, ". Handmatige controle vereist.\n")
+    }
+  } else {
+    # Als de basisversie niet bestaat, hernoem de kolom zonder suffix
+    allgreI_filtered <- allgreI_filtered %>%
+      rename(!!base_col := all_of(col))
+    cat("🔄", col, "is hernoemd naar", base_col, ".\n")
+  }
+}
+
+# 3. Verwijder PBM_STAT en STAT_TRAV als ze nog bestaan
+allgreI_filtered <- allgreI_filtered %>%
+  select(-any_of(c("PBM_STAT", "STAT_TRAV")))
+
+cat("🗑️  PBM_STAT en STAT_TRAV zijn verwijderd.\n")
+
+# 4. Controleer of er nog kolommen met .x of .y zijn
+remaining_suffixes <- names(allgreI_filtered)[grepl("\\.x$|\\.y$", names(allgreI_filtered))]
+
+if (length(remaining_suffixes) == 0) {
+  cat("🎉 Alle kolommen met .x en .y zijn succesvol verwijderd of hernoemd!\n")
+} else {
+  cat("❗ Er zijn nog kolommen met .x of .y:\n")
+  print(remaining_suffixes)
+}
+
+# 5. Controleer de structuur van de opgeschoonde dataset
+str(allgreI_filtered)
+
+```
+
+
+```{r}
+# Zet W en parking_diff om naar binaire factorvariabelen met labels "No" en "Yes"
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    W = factor(W, levels = c(0, 1), labels = c("No", "Yes")),
+    parking_diff = factor(parking_diff, levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+# Controleer of de omzetting correct is uitgevoerd
+```
+
+
+```{r}
+str(allgreI_filtered)
+```
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# 1. Splits categorische en numerieke variabelen
+cat_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.factor)]
+num_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.numeric)]
+
+# 2. Distributies van categorische variabelen
+cat("📊 Distributie van categorische variabelen:\n")
+for (var in cat_vars) {
+  cat("🔸", var, "\n")
+  
+  # Frequentietabel printen
+  print(table(allgreI_filtered[[var]], useNA = "ifany"))
+  
+  # Staafdiagram maken
+  plot <- ggplot(allgreI_filtered, aes_string(x = var)) +
+    geom_bar(fill = "steelblue", na.rm = TRUE) +
+    labs(title = paste("Distributie van", var), x = var, y = "Frequentie") +
+    theme_minimal()
+  
+  print(plot)
+}
+
+# 3. Distributies van numerieke variabelen
+cat("\n📈 Distributie van numerieke variabelen:\n")
+for (var in num_vars) {
+  cat("🔹", var, "\n")
+  
+  # Samenvatting printen
+  print(summary(allgreI_filtered[[var]]))
+  
+  # Histogram maken
+  plot <- ggplot(allgreI_filtered, aes_string(x = var)) +
+    geom_histogram(binwidth = 1, fill = "steelblue", color = "black", na.rm = TRUE) +
+    labs(title = paste("Distributie van", var), x = var, y = "Frequentie") +
+    theme_minimal()
+  
+  print(plot)
+}
+
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# TYPE_HAB correct groeperen met grondige schoonmaak
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    TYPE_HAB = case_when(
+      TYPE_HAB %in% c("1", "2") ~ "Groep 1",      # Groep 1: 1 of 2
+      TYPE_HAB %in% c("3", "4", "5") ~ "Groep 2",   # Groep 2: 3, 4, 5                 # Overige waarden worden NA
+    ),
+    TYPE_HAB = factor(TYPE_HAB, levels = c("Groep 1", "Groep 2"))
+  )
+
+
+# 2️⃣ OCCU1 correct groeperen
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    OCCU1 = case_when(
+      OCCU1 %in% c("3", "4", "5") ~ "3-5",  # Waarden 3, 4, 5 samengevoegd
+      TRUE ~ as.character(OCCU1)
+    ),
+    OCCU1 = factor(OCCU1)
+  )
+
+# 3️⃣ Nieuwe variabele 'retrait' toevoegen
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    retrait = ifelse(OCCU1 == "7", "Yes", "No"),
+    retrait = factor(retrait, levels = c("No", "Yes"))
+  )
+
+# 2️⃣ nb_pers correct groeperen
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    nb_pers = as.numeric(as.character(nb_pers)),  # Zet om naar numeriek
+    nb_pers = case_when(
+      nb_pers %in% c(1, 2) ~ as.character(nb_pers),
+      nb_pers %in% c(3, 4) ~ "3-4",  # Groep 3-4
+      nb_pers %in% c(5, 6, 7, 8) ~ "5-8",  # Groep 5-8
+      TRUE ~ NA_character_
+    ),
+    nb_pers = factor(nb_pers, levels = c("1", "2", "3-4", "5-8"))
+  )
+
+# 🔍 Controleer de aangepaste dataset
+str(allgreI_filtered)
+
+# ℹ️ Bekijk de verdeling van de nieuwe groepen
+cat("Verdeling van TYPE_HAB:\n")
+print(table(allgreI_filtered$TYPE_HAB, useNA = "ifany"))
+
+cat("Verdeling van OCCU1:\n")
+print(table(allgreI_filtered$OCCU1, useNA = "ifany"))
+
+cat("Verdeling van retrait:\n")
+print(table(allgreI_filtered$retrait, useNA = "ifany"))
+
+cat("Verdeling van nb_pers:\n")
+print(table(allgreI_filtered$nb_pers, useNA = "ifany"))
+
+# 📊 5️⃣ Visualisatie van de distributies van alle variabelen
+cat_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.factor)]
+num_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.numeric)]
+
+# 📊 Visualisatie voor categorische variabelen
+for (var in cat_vars) {
+  cat("🔸 Distributie van", var, ":\n")
+  
+  # Frequentietabel printen
+  print(table(allgreI_filtered[[var]], useNA = "ifany"))
+  
+  # Staafdiagram maken
+  plot <- ggplot(allgreI_filtered, aes_string(x = var)) +
+    geom_bar(fill = "steelblue", na.rm = TRUE) +
+    labs(title = paste("Distributie van", var), x = var, y = "Frequentie") +
+    theme_minimal()
+  
+  print(plot)
+}
+
+# 📈 Visualisatie voor numerieke variabelen
+for (var in num_vars) {
+  cat("🔹 Distributie van", var, ":\n")
+  
+  # Samenvatting printen
+  print(summary(allgreI_filtered[[var]]))
+  
+  # Histogram maken
+  plot <- ggplot(allgreI_filtered, aes_string(x = var)) +
+    geom_histogram(binwidth = 1, fill = "steelblue", color = "black", na.rm = TRUE) +
+    labs(title = paste("Distributie van", var), x = var, y = "Frequentie") +
+    theme_minimal()
+  
+  print(plot)
+}
+
+```

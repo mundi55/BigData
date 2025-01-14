@@ -50,18 +50,30 @@ knitr::opts_chunk$set(echo = FALSE)
 
 
 ## Problem definition of the project
+Mobility behavior
+-   Characterisation
+-   Variables discussion
 
+## Literature review and relevant variables
 
-## Exploratory Data Analysis 
-
--   Bullet 1
--   Bullet 2
--   Bullet 3
+-   Literature: age, working status, health, sex, household, income, possession of a car, living area and space, distance to shops
+-   Common sense / what we thought: spc, remote or home work, possession of bike or motorcycle, distance to public transport
+-   Variables we consider: id_pers, immobil, cspgroup, sexe, dispovp, age, NO_MEN, TYPE_HAB, NB_2Rm, zoneres.x, Gare2, PBM_STAT, STAT_TRAV
 
 
 ## Dataset preparation 
+-   Merging the datasets
+-   Selecting the relevant variables
+-   Factorizing, redefining and grouping categories
+-   Defining and adding the W variable
 
+## Data exploration
+-   Initial exploration: Chi-square test and t-test
+-> All of them, except zoneres are significant
+-   Looking at collinearity through vif (has_car and travdom has mild collinearity)
 
+## Logit model
+-   Investigate which variables to use for a model, needs more grouping
 ## Modeling Techniques
 Models used for analysis:
 1. Logistic Regression

@@ -13,67 +13,140 @@ summary(logit_model1)
 logit_model2 <- glm(immobil ~ W, data = allgreI_filtered, family = binomial)
 summary(logit_model2)
 ```
-# Adding sex and cspgroup
-```{r}
-logit_model3 <- glm(immobil ~ dispovp + age_group + sexe + cspgroup, data = allgreI_filtered, family = binomial)
-summary(logit_model3)
-```
 
 ```{r}
-logit_model4 <- glm(immobil ~ dispovp + age_group + sexe + cspgroup + W, data = allgreI_filtered, family = binomial)
+# Lijst met alle variabelen voor aparte logistische modellen
+variables <- c("dispovp", "age_group", "sexe", "cspgroup", "has_car", 
+               "TYPE_HAB", "parking_diff", "OCCU1", "travdom", "nb_pers", "W")
+
+# Loop door elke variabele en maak een apart logistisch model
+for (var in variables) {
+  # Dynamische naam voor het model
+  model_name <- paste0("logit_model_", var)
+  
+  # Formule voor het model
+  formula <- as.formula(paste("immobil ~", var))
+  
+  # Bouw het logistisch regressiemodel
+  assign(model_name, glm(formula, data = allgreI_filtered, family = binomial))
+  
+  # Optioneel: toon de samenvatting van elk model
+  cat("\n\n📊 Samenvatting van", model_name, ":\n")
+  print(summary(get(model_name)))
+}
+
+```
+```{r}
+logit_model3 <- glm(immobil ~ dispovp + age_group + sexe + cspgroup+ has_car + TYPE_HAB + parking_diff + OCCU1 + travdom + nb_pers + W , data = allgreI_filtered, family = binomial)
+summary(logit_model3)
+```
+```{r}
+logit_model4 <- glm(immobil ~ dispovp + age_group + cspgroup+ has_car + TYPE_HAB + parking_diff + OCCU1 + travdom + nb_pers + W , data = allgreI_filtered, family = binomial)
 summary(logit_model4)
 ```
 ```{r}
-logit_model5 <- glm(immobil ~ dispovp + sexe + W, data = allgreI_filtered, family = binomial)
+logit_model5 <- glm(immobil ~ dispovp + age_group + cspgroup+ has_car + parking_diff + OCCU1 + travdom + nb_pers + W , data = allgreI_filtered, family = binomial)
 summary(logit_model5)
 ```
 ```{r}
+logit_model6 <- glm(immobil ~ dispovp + age_group + cspgroup+ has_car + parking_diff + OCCU1 + travdom + W , data = allgreI_filtered, family = binomial)
+summary(logit_model6)
+```
+```{r}
+logit_model7 <- glm(immobil ~ age_group + cspgroup+ has_car + parking_diff + OCCU1 + travdom + W , data = allgreI_filtered, family = binomial)
+summary(logit_model7)
+```
+```{r}
+logit_model8 <- glm(immobil ~ age_group + has_car + parking_diff + OCCU1 + travdom + W , data = allgreI_filtered, family = binomial)
+summary(logit_model8)
+```
+```{r}
+logit_model9 <- glm(immobil ~ has_car + parking_diff + OCCU1 + travdom + W , data = allgreI_filtered, family = binomial)
+summary(logit_model9)
+```
+```{r}
+logit_model9 <- glm(immobil ~ has_car + OCCU1 + travdom + W , data = allgreI_filtered, family = binomial)
+summary(logit_model9)
+```
+```{r}
+# Filter de dataset om OCCU1 categorie '3-5' te verwijderen
+allgreI_filtered_no_OCCU13_5 <- allgreI_filtered %>%
+  filter(OCCU1 != "3-5")
+
+# Bouw het logistisch regressiemodel zonder OCCU1 categorie '3-5'
+logit_model10 <- glm(immobil ~ has_car + OCCU1 + travdom + W, 
+                     data = allgreI_filtered_no_OCCU13_5, 
+                     family = binomial)
+
+# Bekijk de samenvatting van het model
+summary(logit_model10)
+```
+```{r}
 library(caTools)
-library(ROSE)
+library(pROC)
+library(dplyr)
 
-# Zet een seed voor reproduceerbaarheid
-set.seed(123)
+set.seed(123)  # Voor reproduceerbaarheid
 
-# Data splitsen in 80% training en 20% test
-split <- sample.split(allgreI_filtered$immobil, SplitRatio = 0.8)
+# 1️⃣ Controleer ontbrekende waarden in de relevante variabelen
+na_summary <- sapply(allgreI_filtered[, c("immobil", "has_car", "travdom", "W")], function(x) sum(is.na(x)))
+print(na_summary)
 
-# Maak de trainings- en testsets
-train_data <- subset(allgreI_filtered, split == TRUE)
-test_data <- subset(allgreI_filtered, split == FALSE)
+# 2️⃣ Verwijder rijen met NA's in de gebruikte variabelen (of gebruik imputatie)
+clean_data <- allgreI_filtered %>%
+  filter(!is.na(immobil) & !is.na(has_car) & !is.na(travdom) & !is.na(W))
 
-# Oversampling om de data te balanceren
-balanced_train <- ovun.sample(immobil ~ ., data = train_data, method = "over", N = 2 * table(train_data$immobil)[1])$data
+cat("Aantal observaties na opschonen:", nrow(clean_data), "\n")
 
-# Logistisch regressiemodel trainen met gebalanceerde data (Model 5)
-model_5 <- glm(immobil ~ sexe + dispovp + W, 
-               data = balanced_train, 
-               family = binomial)
+# 3️⃣ 80% Train - 20% Test split op de opgeschoonde dataset
+split <- sample.split(clean_data$immobil, SplitRatio = 0.8)
+train_data <- subset(clean_data, split == TRUE)
+test_data <- subset(clean_data, split == FALSE)
 
-# Samenvatting van Model 5
-summary(model_5)
+# 4️⃣ Zorg dat de levels van OCCU1, immobil en andere factoren gelijk zijn
+train_data$OCCU1 <- factor(train_data$OCCU1, levels = levels(clean_data$OCCU1))
+test_data$OCCU1 <- factor(test_data$OCCU1, levels = levels(train_data$OCCU1))
 
-# Voorspellingen maken op de testset
-predictions <- predict(model_5, newdata = test_data, type = "response")
+train_data$immobil <- factor(train_data$immobil, levels = c("No", "Yes"))
+test_data$immobil <- factor(test_data$immobil, levels = c("No", "Yes"))
 
-# Zet de waarschijnlijkheden om naar 0/1 (threshold op 0.75)
-predicted_class <- ifelse(predictions > 0.75, "Yes", "No")
+# 5️⃣ Model trainen met logit_model9 specificatie
+logit_model9 <- glm(immobil ~ has_car + travdom + W, 
+                    data = train_data, 
+                    family = binomial)
 
-# Controleer de unieke waarden in immobil
-levels(test_data$immobil)
+# Samenvatting van het model
+summary(logit_model9)
 
-# Zet de levels van predicted_class gelijk aan die van test_data$immobil
-predicted_class <- factor(predicted_class, levels = levels(test_data$immobil))
+# 6️⃣ Kansvoorspellingen maken
+predictions_prob <- predict(logit_model9, newdata = test_data, type = "response")
 
-# Controleer de verdeling van predicted_class
-table(predicted_class)
+# 7️⃣ Omzetten naar classificatie met drempelwaarde van 0.5
+predictions_class <- ifelse(predictions_prob > 0.5, "Yes", "No")
 
-# Confusion Matrix opnieuw berekenen
-conf_matrix <- table(Predicted = predicted_class, Actual = test_data$immobil)
+# 8️⃣ Zet voorspellingen om naar factor met dezelfde levels als 'immobil'
+predictions_class <- factor(predictions_class, levels = levels(test_data$immobil))
+
+# 9️⃣ Confusion Matrix
+conf_matrix <- table(Predicted = predictions_class, Actual = test_data$immobil)
 print(conf_matrix)
 
-# Nauwkeurigheid berekenen
-accuracy <- mean(predicted_class == test_data$immobil, na.rm = TRUE)
-cat("Model 5 Accuracy:", round(accuracy * 100, 2), "%\n")
+# 🔟 Bereken nauwkeurigheid (accuracy)
+accuracy <- mean(predictions_class == test_data$immobil)
+cat("Model Accuracy:", round(accuracy * 100, 2), "%\n")
+
+# 🔢 ROC-curve en AUC-waarde berekenen
+roc_curve <- roc(test_data$immobil, predictions_prob)
+
+# Plot de ROC-curve
+plot(roc_curve, col = "blue", main = "ROC Curve - logit_model9")
+abline(a = 0, b = 1, lty = 2, col = "red")
+
+# Bereken de AUC (Area Under the Curve)
+auc_value <- auc(roc_curve)
+cat("AUC-waarde:", round(auc_value, 3), "\n")
 
 ```
+
+
 
