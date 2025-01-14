@@ -1,0 +1,145 @@
+---
+title: "NN"
+author: "Mundi"
+date: "2025-01-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(neuralnet)
+library(skimr)
+library(dplyr)
+library(caret) 
+```
+
+
+```{r}
+set.seed(123) # For reproducibility
+
+# Load the necessary dataset
+load("allgreI_filtered.RData")
+str(allgreI_filtered)
+```
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+
+# Create a new dataframe with the selected variables
+data_NN <- allgreI_filtered %>%
+  select(immobil, age_group, has_car, cspgroup)#, W, OCCU1, travdom)
+
+# Check structure of the new dataframe
+str(data_NN)
+```
+```{r}
+skim(data_NN)
+```
+
+
+```{r}
+# Handle missing values by removing rows with NA
+data_NN <- na.omit(data_NN)
+
+# One-hot encode predictor variables only (not the target variable)
+predictors <- data_NN %>%
+  select(-immobil)
+
+# Perform one-hot encoding on predictors
+data_NN_encoded <- dummyVars(~., data = predictors)
+encoded_predictors <- as.data.frame(predict(data_NN_encoded, newdata = predictors))
+
+# Combine the encoded predictors with the target variable
+data_NN <- cbind(immobil = data_NN$immobil, encoded_predictors)
+
+# Clean column names to replace invalid characters
+colnames(data_NN) <- gsub("[^[:alnum:]_]", "_", colnames(data_NN))
+
+# Convert immobil to numeric (0 for "No", 1 for "Yes")
+data_NN$immobil <- ifelse(data_NN$immobil == "Yes", 1, 0)
+
+# Split the data into training (70%) and testing (30%) sets
+set.seed(123)
+trainIndex <- createDataPartition(data_NN$immobil, p = 0.7, list = FALSE)
+train <- data_NN[trainIndex, ]
+test <- data_NN[-trainIndex, ]
+```
+
+
+```{r}
+# Define the formula for the neural network
+
+formula <- as.formula(paste("immobil ~", paste(colnames(train)[-1], collapse = " + ")))
+```
+
+```{r}
+str(data_NN)
+```
+
+
+
+
+```{r}
+# Train the neural network
+nn <- neuralnet(formula,
+                data = train,
+                hidden = c(5, 5),
+                linear.output = FALSE,
+                stepmax = 1000000)
+```
+
+```{r}
+plot(nn)
+```
+
+
+```{r}
+# Make predictions on the test set
+predictions <- neuralnet::compute(nn, test[, -1])$net.result
+
+# Convert probabilities to binary predictions (threshold = 0.5)
+predicted_class <- ifelse(predictions > 0.5, 1, 0)
+
+# Generate a confusion matrix
+confusion_matrix <- table(Predicted = predicted_class, Actual = test$immobil)
+
+# Print the confusion matrix
+print(confusion_matrix)
+```
+
+
+```{r}
+# Calculate accuracy, precision, recall, and F1-score
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+# Print metrics
+cat("Accuracy:", round(accuracy, 3), "\n")
+cat("Precision:", round(precision, 3), "\n")
+cat("Recall:", round(recall, 3), "\n")
+cat("F1 Score:", round(f1_score, 3), "\n")
+
+```
+
+```{r}
+print(confusion_matrix)
+
+```
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,121 @@
+---
+title: "Clustering"
+author: "Mundi"
+date: "2025-01-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(caret)
+library(cluster)
+```
+
+
+```{r}
+# Load the data
+load("allgreI_filtered.RData")
+
+# Create a new dataframe for clustering
+data_cluster <- allgreI_filtered %>% 
+  select(id_pers, immobil, age_group, has_car, cspgroup, W, OCCU1, travdom)
+```
+
+
+```{r}
+# Preprocessing
+# Convert categorical variables to numeric format for clustering
+data_cluster_processed <- data_cluster %>% 
+  mutate(
+    immobil = as.numeric(as.factor(immobil)),
+    age_group = as.numeric(as.factor(age_group)),
+    has_car = as.numeric(as.factor(has_car)),
+    cspgroup = as.numeric(as.factor(cspgroup)),
+    W = as.numeric(as.factor(W)),
+    OCCU1 = as.numeric(as.factor(OCCU1)),
+    travdom = as.numeric(as.factor(travdom))
+  )
+
+# Handle missing values by replacing NAs with column means for numeric columns
+data_cluster_processed <- data_cluster_processed %>% 
+  mutate(across(everything(), ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+```
+
+
+```{r}
+# Normalize the data
+preproc <- preProcess(data_cluster_processed[-1], method = c("center", "scale"))
+data_cluster_normalized <- predict(preproc, data_cluster_processed[-1])
+
+# Perform clustering using K-means
+set.seed(123)  # For reproducibility
+k <- 3  # Number of clusters (can be adjusted based on exploration)
+kmeans_result <- kmeans(data_cluster_normalized, centers = k, nstart = 25)
+
+# Add the cluster assignment back to the dataframe
+data_cluster_processed$cluster <- kmeans_result$cluster
+
+# Summary of clusters
+cluster_summary <- data_cluster_processed %>% 
+  group_by(cluster) %>% 
+  summarise(across(everything(), mean))
+```
+
+
+```{r}
+# Save the results
+save(data_cluster_processed, file = "data_cluster_with_clusters.RData")
+```
+
+
+```{r}
+# Visualize the clusters using PCA for dimensionality reduction
+library(ggplot2)
+pca_result <- prcomp(data_cluster_normalized, scale = TRUE)
+pca_data <- as.data.frame(pca_result$x[, 1:2])
+pca_data$cluster <- as.factor(data_cluster_processed$cluster)
+pca_data$immobil <- as.factor(data_cluster$immobil)
+
+ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster, shape = immobil)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Cluster Visualization with PCA", x = "Principal Component 1", y = "Principal Component 2")
+
+```
+```{r}
+# Visualize the distribution of immobile within each cluster using a stacked bar plot
+library(ggplot2)
+data_cluster_processed$immobil <- as.factor(data_cluster$immobil)
+
+ggplot(data_cluster_processed, aes(x = as.factor(cluster), fill = immobil)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(
+    title = "Distribution of Immobil Status Across Clusters",
+    x = "Cluster",
+    y = "Proportion",
+    fill = "Immobile Status"
+  )
+```
+
+```{r}
+# Visualize the distribution of age groups within each cluster
+data_cluster_processed$age_group <- as.factor(data_cluster$age_group)
+
+ggplot(data_cluster_processed, aes(x = as.factor(cluster), fill = age_group)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(
+    title = "Distribution of Age Groups Across Clusters",
+    x = "Cluster",
+    y = "Proportion",
+    fill = "Age Group"
+  )
+
+```
+
