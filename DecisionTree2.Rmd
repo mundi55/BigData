@@ -73,7 +73,7 @@ confusionMatrix(pred_tree10, allgreI_filtered_test$immobil)
 
 # Berechne die Genauigkeit (Accuracy)
 accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
-accuracy_tree
+cat("Accuracy:", accuracy_tree, "\n")
 
 # Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
 
