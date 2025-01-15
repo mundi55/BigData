@@ -63,7 +63,7 @@ is.factor(allgreI_filtered_copy$OCCU1)
 
 ```{r}
 model_tree10 <- rpart(
-  immobil ~ has_car + OCCU1,  # Drei erklärende Variablen
+  immobil ~ has_car + OCCU1 + W,  # Drei erklärende Variablen
   data = allgreI_filtered_copy_train,      # Trainingsdatensatz
   method = "class"          # Klassifikationsbaum
 )
