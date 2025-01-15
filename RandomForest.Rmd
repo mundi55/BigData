@@ -1,0 +1,120 @@
+---
+title: "Mobility_behaviour_Decision_Tree_4th_Try"
+output: html_document
+date: "2025-01-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+
+library(skimr)
+library(dplyr)
+library(randomForest)
+library(rpart)  # Für den Entscheidungsbaum
+library(rpart.plot)  # Für die Visualisierung des Entscheidungsbaums
+library(caret)
+
+
+# Load the necessary dataset
+load("C:/SAProject/Files_OK_SABD_Prject/allgreI.RData") 
+#load("C:/SAProject/Files_OK_SABD_Prject/allgreM.RData")
+#load("C:/SAProject/Files_OK_SABD_Prject/allgreD.RData")
+#mein_datensatz <- load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_filtered.RData")
+# Lade die Datei und speichere das Objekt unter einem neuen Namen
+mein_datensatz <- get(load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_filtered.RData"))
+
+load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_with_W.RData")
+
+# Merge allgreI_filtered mit der Spalte age aus allgreI
+# Erstelle eine Kopie des Datensatzes
+allgreI_filtered_copy <- allgreI_filtered
+
+# Führe die gewünschte Manipulation nur auf der Kopie durch
+allgreI_filtered_copy <- merge(allgreI_filtered_copy, 
+                               allgreI[, c("id_pers", "age")], 
+                               by = "id_pers", 
+                               all.x = TRUE)
+
+# Verwende ab hier die Kopie `allgreI_filtered_copy` für weitere Analysen
+
+allgreI_filtered_copy_clean <- na.omit(allgreI_filtered_copy)
+
+
+# Zufällige Teilung von allgreI in Trainings- und Testdaten (70%-30%)
+set.seed(123) # Für Reproduzierbarkeit
+
+# Erzeuge zufällige Indizes für die Trainingsdaten von allgreI
+train_indices <- sample(1:nrow(allgreI), size = 0.7 * nrow(allgreI))
+
+# Teile allgreI auf
+allgreI_filtered_copy_train <- allgreI_filtered_copy_clean[train_indices, ]
+allgreI_filtered_copy_test <- allgreI_filtered_copy_clean[-train_indices, ]
+
+# Bestätige die Aufteilung
+dim(allgreI_filtered_copy_train) # Zeigt die Dimensionen der Trainingsdaten
+dim(allgreI_filtered_copy_test)  # Zeigt die Dimensionen der Testdaten
+
+class(allgreI_filtered_copy_test$immobil)
+class(allgreI_filtered_copy_train$immobil)
+```
+```{r}
+
+# Random Forest trainieren
+set.seed(123)  # Für Reproduzierbarkeit
+rf_model <- randomForest(immobil ~ age + dispovp + W, 
+                         data = allgreI_filtered_copy_clean, 
+                         ntree = 500,        # Anzahl der Bäume
+                         mtry = 2,           # Anzahl der Variablen, die für jeden Baum berücksichtigt werden
+                         importance = TRUE)  # Variablenbedeutung berechnen
+
+# Ausgabe des Modells anzeigen
+print(rf_model)
+
+
+# Variable Importance (Wichtigkeit der Variablen)
+importance(rf_model)
+
+
+plot(rf_model)
+
+varImpPlot(rf_model, type = 1)
+```
+
+```{r}
+
+# 1. Konfusionsmatrix ausgeben
+conf_matrix <- rf_model$confusion
+
+# 1.1. Visualisierung der Confusion Matrix als Heatmap
+conf_matrix_df <- as.data.frame(as.table(conf_matrix))
+colnames(conf_matrix_df) <- c("Predicted", "Actual", "Count")
+
+ggplot(conf_matrix_df, aes(x = Predicted, y = Actual, fill = Count)) +
+  geom_tile() +
+  geom_text(aes(label = Count), color = "white", size = 6) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  theme_minimal() +
+  labs(title = "Confusion Matrix", x = "Predicted Class", y = "Actual Class") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# 2. Berechnung der Metriken
+TP <- conf_matrix[2, 2]  # True Positives
+TN <- conf_matrix[1, 1]  # True Negatives
+FP <- conf_matrix[1, 2]  # False Positives
+FN <- conf_matrix[2, 1]  # False Negatives
+
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+precision <- TP / (TP + FP)
+recall <- TP / (TP + FN)
+f1_score <- 2 * ((precision * recall) / (precision + recall))
+
+# 3. Ausgabe der Metriken in einem strukturierten Dataframe
+metrics_df <- data.frame(
+  Metric = c("Accuracy", "Precision", "Recall", "F1-Score"),
+  Value = c(accuracy, precision, recall, f1_score)
+)
+
+```
