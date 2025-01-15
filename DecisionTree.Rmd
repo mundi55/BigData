@@ -1,0 +1,708 @@
+---
+title: "Mobility_behaviour_Decision_Tree_4th_Try"
+output: html_document
+date: "2025-01-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+
+library(skimr)
+library(dplyr)
+library(randomForest)
+library(rpart)  # Für den Entscheidungsbaum
+library(rpart.plot)  # Für die Visualisierung des Entscheidungsbaums
+library(caret)
+
+
+# Load the necessary dataset
+load("C:/SAProject/Files_OK_SABD_Prject/allgreI.RData") 
+#load("C:/SAProject/Files_OK_SABD_Prject/allgreM.RData")
+#load("C:/SAProject/Files_OK_SABD_Prject/allgreD.RData")
+load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_with_W.RData")
+
+
+# Check the structure of the dataset
+str(allgreI)
+
+# Summary of the dataset
+summary(allgreI)
+head(allgreI)
+skim(allgreI)
+
+# Check for missing values
+sapply(allgreI, function(x) sum(is.na(x)))
+
+# View the distribution of the variable `nbd` (number of trips)
+table(allgreI$nbd)
+
+# Visualize the distribution of `nbd`
+library(ggplot2)
+ggplot(allgreI, aes(x = nbd)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+  labs(title = "Distribution of Number of Trips (nbd)", x = "Number of Trips", y = "Frequency")
+
+```
+
+
+## Creating the immobil variable
+
+```{r pressure, echo=FALSE}
+# Create a new variable 'immobil': 1 if `nbd` = 0 (immobile), otherwise 0
+allgreI <- allgreI %>%
+  mutate(immobil = ifelse(nbd == 0, 1, 0))
+
+# Check if the variable was created correctly
+table(allgreI$immobil)
+
+```
+
+
+```{r}
+allgreI$immobil <- as.factor(allgreI$immobil)
+
+# Überprüfung des Datentyps von 'immobil'
+class(allgreI$immobil)
+
+colnames(allgreI)[colnames(allgreI) == "dispovp"] <- "VP_DISPO"
+
+# Replace NA values in VP_DISPO with 0
+allgreI$VP_DISPO[is.na(allgreI$VP_DISPO)] <- 0
+
+# Confirm that there are no NA values in VP_DISPO
+sum(is.na(allgreI$VP_DISPO))
+
+
+# Zufällige Teilung von allgreI in Trainings- und Testdaten (70%-30%)
+set.seed(123) # Für Reproduzierbarkeit
+
+# Erzeuge zufällige Indizes für die Trainingsdaten von allgreI
+train_indices <- sample(1:nrow(allgreI), size = 0.7 * nrow(allgreI))
+
+# Teile allgreI auf
+allgreI_train <- allgreI[train_indices, ]
+allgreI_test <- allgreI[-train_indices, ]
+
+# Bestätige die Aufteilung
+dim(allgreI_train) # Zeigt die Dimensionen der Trainingsdaten
+dim(allgreI_test)  # Zeigt die Dimensionen der Testdaten
+
+class(allgreI_test$immobil)
+class(allgreI_train$immobil)
+
+```
+
+
+########################################################################################################################
+#######################################################################################################################
+#########################################################################################################################
+### Ab hier beginnt Decision Tree-Arbeit
+
+
+
+
+
+
+```{r}
+
+
+# Trainiere einen Entscheidungsbaum mit 'age' als erklärender Variable und 'immobil' als Zielvariable
+# method muss so bleiben
+model_tree <- rpart(immobil ~ age, data = allgreI_train, method = "class")
+
+# implizit, weil default: minsplit:20, minbucket: round(minsplit/ 3), cp: 0.01, maxdepth: 30, xval: 10, maxcompete: 4
+
+# Zusammenfassung des Modells
+summary(model_tree)
+
+# Visualisierung des Entscheidungsbaums
+rpart.plot(model_tree)
+
+
+# Vorhersage auf den Testdaten
+pred_tree <- predict(model_tree, newdata = allgreI_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree, Actual = allgreI_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree, allgreI_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+accuracy_tree
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+
+
+```{r}
+
+# Wir verwenden train() mit Kreuzvalidierung (10-fach) und lassen Hyperparameter optimieren.
+model_train <- train(immobil ~ age, data = allgreI_train, method = "rpart", 
+                     trControl = trainControl(method = "cv", number = 10),  # Kreuzvalidierung
+                     tuneLength = 10)  # Hyperparameter-Tuning
+
+
+# Zeige die wichtigsten Ergebnisse an
+print(model_train)
+summary(model_train)
+
+# Plot der Fehlerkurve (MSE oder Accuracy)
+plot(model_train)
+
+# Beste Ergebnisse (z. B. beste Accuracy)
+best_result <- model_train$results[which.min(model_train$results$Accuracy), ]
+print(best_result)
+
+# Visualisiere den Entscheidungsbaum (falls rpart als Modell verwendet wurde)
+rpart.plot(model_train$finalModel)
+
+
+```
+
+```{r}
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+
+
+```{r}
+# Zielvariable als Faktor in Trainings- und Testdaten sicherstellen
+allgreI_train$immobil <- as.factor(allgreI_train$immobil)
+allgreI_test$immobil <- as.factor(allgreI_test$immobil)
+
+# Verwende die bestehende Aufteilung und füge Altersgruppen hinzu
+allgreI_train <- allgreI_train %>%
+  mutate(
+    age_group = cut(
+      age,
+      breaks = c(0, 16, 20, 60, 75, 85, Inf),
+      labels = c("0-16", "16-20", "20-60", "60-75", "75-85", "85+"),
+      right = FALSE
+    )
+  )
+
+allgreI_test <- allgreI_test %>%
+  mutate(
+    age_group = cut(
+      age,
+      breaks = c(0, 16, 20, 60, 75, 85, Inf),
+      labels = c("0-16", "16-20", "20-60", "60-75", "75-85", "85+"),
+      right = FALSE
+    )
+  )
+
+table(allgreI_train$age_group, allgreI_train$immobil)
+
+# Trainiere den Decision Tree mit der neuen age_group-Variable
+model_tree2 <- rpart(immobil ~ age_group, data = allgreI_train, method = "class")
+
+# implizit, weil default: minsplit:20, minbucket: round(minsplit/ 3), cp: 0.01, maxdepth: 30, xval: 10, maxcompete: 4
+
+summary(model_tree2)
+
+# Visualisiere den Decision Tree
+rpart.plot(model_tree2)
+
+# Vorhersage auf den Testdaten
+pred_tree <- predict(model_tree2, newdata = allgreI_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree, Actual = allgreI_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree, allgreI_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+accuracy_tree
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+
+```
+
+
+```{r}
+# Definiere das Grid nur für cp
+tune_grid <- expand.grid(cp = 1e-10)  # cp ist der einzige unterstützte Tuning-Parameter
+
+# Trainiere das Modell mit angepasstem Control
+model_tree_train2 <- train(
+  immobil ~ age_group, 
+  data = allgreI_train, 
+  method = "rpart", 
+  tuneGrid = tune_grid, 
+  trControl = trainControl(method = "cv", number = 10),
+  control = rpart.control(minsplit = 2, minbucket = 1)
+)
+
+# Zeige die wichtigsten Ergebnisse an
+print(model_tree_train2)
+summary(model_tree_train2)
+
+---------------------------------
+
+
+# Plot der Fehlerkurve (MSE oder Accuracy)
+plot(model_tree_train2)
+
+# Beste Ergebnisse (z. B. beste Accuracy)
+best_result <- model_train$results[which.min(model_tree_train2$results$Accuracy), ]
+print(best_result)
+
+# Visualisiere den Entscheidungsbaum (falls rpart als Modell verwendet wurde)
+rpart.plot(model_tree_train2$finalModel)
+
+```
+
+```{r}
+
+model_tree4 <- rpart(immobil ~ VP_DISPO, 
+                     data = allgreI_train, 
+                     method = "class"
+                    )
+
+summary(model_tree4)
+
+# Visualisiere den Decision Tree
+rpart.plot(model_tree4)
+
+# Vorhersage auf den Testdaten
+pred_tree <- predict(model_tree4, newdata = allgreI_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree, Actual = allgreI_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree, allgreI_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+accuracy_tree
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+
+
+
+# Manuelles Tuning-Grid für cp
+tune_grid <- expand.grid(cp = seq(0.001, 0.1, length.out = 10))  # 10 Werte zwischen 0.001 und 0.1
+
+# Trainiere das Modell mit dem manuellen Grid
+model_train4 <- train(
+  immobil ~ VP_DISPO, 
+  data = allgreI_train, 
+  method = "rpart", 
+  trControl = trainControl(method = "cv", number = 10),  # Kreuzvalidierung
+  tuneGrid = tune_grid  # Manuelles Grid
+)
+
+# Zeige die wichtigsten Ergebnisse an
+print(model_train4)
+summary(model_train4)
+
+# Plot der Fehlerkurve
+plot(model_train4)
+
+
+# Beste Ergebnisse (z. B. beste Accuracy)
+best_result4 <- model_train4$results[which.min(model_train4$results$Accuracy), ]
+print(best_result4)
+
+# Visualisiere den Entscheidungsbaum (falls rpart als Modell verwendet wurde)
+rpart.plot(model_train4$finalModel)
+```
+
+```{r}
+model_tree6 <- rpart(
+  immobil ~ age + VP_DISPO,  # Zwei erklärende Variablen
+  data = allgreI_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# implizit, weil default: minsplit:20, minbucket: round(minsplit/ 3), cp: 0.01, maxdepth: 30, xval: 10, maxcompete: 4
+
+# Zeige die Struktur des Baumes an
+print(model_tree6)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_tree6)
+
+# Visualisierung des Entscheidungsbaums
+rpart.plot(model_tree6, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_tree <- predict(model_tree6, newdata = allgreI_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree, Actual = allgreI_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree, allgreI_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+accuracy_tree
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+
+# Wir verwenden train() mit Kreuzvalidierung (10-fach) und lassen Hyperparameter optimieren.
+model_train6 <- train(immobil ~ age + VP_DISPO, data = allgreI_train, method = "rpart", 
+                     trControl = trainControl(method = "cv", number = 10),  # Kreuzvalidierung
+                     tuneLength = 10)  # Hyperparameter-Tuning
+
+
+# Zeige die wichtigsten Ergebnisse an
+print(model_train6)
+summary(model_train6)
+
+# Plot der Fehlerkurve (MSE oder Accuracy)
+plot(model_train6)
+
+# Beste Ergebnisse (z. B. beste Accuracy)
+best_result6 <- model_train6$results[which.min(model_train6$results$Accuracy), ]
+print(best_result6)
+
+# Visualisiere den Entscheidungsbaum (falls rpart als Modell verwendet wurde)
+rpart.plot(model_train6$finalModel)
+
+```
+
+
+```{r}
+model_tree7 <- rpart(
+  immobil ~ age_group + VP_DISPO,  # Zwei erklärende Variablen
+  data = allgreI_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# implizit, weil default: minsplit:20, minbucket: round(minsplit/ 3), cp: 0.01, maxdepth: 30, xval: 10, maxcompete: 4
+
+# Zeige die Struktur des Baumes an
+print(model_tree7)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_tree7)
+
+# Visualisierung des Entscheidungsbaums
+rpart.plot(model_tree7, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_tree <- predict(model_tree7, newdata = allgreI_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree, Actual = allgreI_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree, allgreI_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+accuracy_tree
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+
+# Manuelles Tuning-Grid für cp
+tune_grid <- expand.grid(cp = seq(0.001, 0.05, length.out = 10))  # 10 Werte für cp
+
+# Trainiere das Modell mit Kreuzvalidierung und manuellem Grid
+model_train7 <- train(
+  immobil ~ age_group + VP_DISPO,
+  data = allgreI_train,
+  method = "rpart",
+  trControl = trainControl(method = "cv", number = 10),  # 10-fache Kreuzvalidierung
+  tuneGrid = tune_grid  # Manuelles Tuning-Grid
+)
+
+# Zeige die wichtigsten Ergebnisse an
+print(model_train7)
+
+# Visualisierung der Fehlerkurve
+plot(model_train7)
+
+
+# Beste Ergebnisse (z. B. beste Accuracy)
+best_result7 <- model_train7$results[which.min(model_train7$results$Accuracy), ]
+print(best_result7)
+
+# Visualisiere den Entscheidungsbaum (falls rpart als Modell verwendet wurde)
+rpart.plot(model_train7$finalModel)
+```
+
+```{r}
+
+## aufgeteilt in Trainings- und Testdaten?
+allgreI_with_W <- na.omit(allgreI_filtered)
+colnames(allgreI_with_W)[colnames(allgreI_with_W) == "dispovp"] <- "VP_DISPO"
+## allgreI_with_W hier bearbeitet!!
+
+model_tree8 <- rpart(
+  immobil ~ age_group + VP_DISPO +W,  # Drei erklärende Variablen
+  data = allgreI_with_W,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_tree8)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_tree8)
+
+# Visualisierung des Entscheidungsbaums
+rpart.plot(model_tree8, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_tree <- predict(model_tree8, newdata = allgreI_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree, Actual = allgreI_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree, allgreI_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+accuracy_tree
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+
+# Definiere ein Hyperparameter-Grid
+tune_grid <- expand.grid(cp = seq(0.001, 0.05, by = 0.01))
+
+# Trainiere das Modell mit `train()` und dem definierten Grid
+model_train8 <- train(
+  immobil ~ age_group + dispovp + W,
+  data = allgreI_with_W,
+  method = "rpart",
+  trControl = trainControl(method = "cv", number = 10),  # 10-fache Kreuzvalidierung
+  tuneGrid = tune_grid
+)
+
+# Ergebnisse anzeigen
+print(model_train8)
+summary(model_train8)
+
+# Visualisierung der Ergebnisse
+plot(model_train8)
+
+
+# Beste Ergebnisse (z. B. beste Accuracy)
+best_result8 <- model_train8$results[which.min(model_train8$results$Accuracy), ]
+print(best_result8)
+
+# Visualisiere den Entscheidungsbaum (falls rpart als Modell verwendet wurde)
+rpart.plot(model_train8$finalModel)
+```
+
+```{r}
+model_tree9 <- rpart(
+  immobil ~ age + VP_DISPO + W,  # Drei erklärende Variablen
+  data = allgreI_with_W,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_tree9)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_tree9)
+
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_tree9, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_tree <- predict(model_tree9, newdata = allgreI_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree, Actual = allgreI_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree, allgreI_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+accuracy_tree
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+
+# Wir verwenden train() mit Kreuzvalidierung (10-fach) und lassen Hyperparameter optimieren.
+model_train9 <- train(immobil ~ age + VP_DISPO + W, data = allgreI_with_W, method = "rpart", 
+                     trControl = trainControl(method = "cv", number = 10),  # Kreuzvalidierung
+                     tuneLength = 10)  # Hyperparameter-Tuning
+
+
+# Zeige die wichtigsten Ergebnisse an
+print(model_train9)
+summary(model_train9)
+
+# Plot der Fehlerkurve (MSE oder Accuracy)
+plot(model_train9)
+
+# Beste Ergebnisse (z. B. beste Accuracy)
+best_result9 <- model_train9$results[which.min(model_train9$results$Accuracy), ]
+print(best_result9)
+
+# Visualisiere den Entscheidungsbaum (falls rpart als Modell verwendet wurde)
+rpart.plot(model_train9$finalModel)
+```
