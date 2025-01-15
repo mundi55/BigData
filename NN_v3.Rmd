@@ -1,0 +1,182 @@
+---
+title: "NN_v3"
+author: "Mundi"
+date: "2025-01-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(neuralnet)
+library(skimr)
+library(dplyr)
+library(caret) 
+```
+
+```{r}
+set.seed(123) # For reproducibility
+
+# Load the necessary dataset
+load("allgreI_filtered.RData")
+str(allgreI_filtered)
+```
+
+### Create the data for NN1
+```{r}
+# Create a new dataframe with the selected variables for NN1
+data_NN1 <- allgreI_filtered %>%
+  select(immobil, age, dispovp)
+
+# Check structure of the dataframe
+str(data_NN1)
+
+# Handle missing values
+data_NN1 <- na.omit(data_NN1)
+
+# One-hot encode predictor variables for NN1
+predictors_NN1 <- data_NN1 %>% select(-immobil)
+data_NN1_encoded <- dummyVars(~., data = predictors_NN1)
+encoded_predictors_NN1 <- as.data.frame(predict(data_NN1_encoded, newdata = predictors_NN1))
+data_NN1 <- cbind(immobil = data_NN1$immobil, encoded_predictors_NN1)
+
+# Clean column names
+data_NN1 <- data_NN1 %>% mutate(immobil = ifelse(immobil == "Yes", 1, 0))
+colnames(data_NN1) <- gsub("[^[:alnum:]_]", "_", colnames(data_NN1))
+
+# Split into training and testing sets
+trainIndex1 <- createDataPartition(data_NN1$immobil, p = 0.7, list = FALSE)
+train_NN1 <- data_NN1[trainIndex1, ]
+test_NN1 <- data_NN1[-trainIndex1, ]
+```
+
+### Train NN1
+```{r}
+# Define formula
+formula_NN1 <- as.formula(paste("immobil ~", paste(colnames(train_NN1)[-1], collapse = " + ")))
+
+# Train the neural network
+nn1 <- neuralnet(formula_NN1,
+                 data = train_NN1,
+                 hidden = c(2,2),
+                 linear.output = FALSE,
+                 stepmax = 100000)
+```
+
+
+```{r}
+plot(nn1)
+```
+
+### Evaluate NN1
+```{r}
+# Make predictions on the test set
+predictions_NN1 <- neuralnet::compute(nn1, test_NN1[, -1])$net.result
+
+# Convert probabilities to binary predictions
+predicted_class_NN1 <- ifelse(predictions_NN1 > 0.5, 1, 0)
+
+# Generate confusion matrix
+conf_matrix_NN1 <- table(Predicted = predicted_class_NN1, Actual = test_NN1$immobil)
+
+# Print confusion matrix
+print("Confusion Matrix for NN1:")
+print(conf_matrix_NN1)
+
+# Calculate performance metrics
+accuracy_NN1 <- sum(diag(conf_matrix_NN1)) / sum(conf_matrix_NN1)
+precision_NN1 <- conf_matrix_NN1[2, 2] / sum(conf_matrix_NN1[2, ])
+recall_NN1 <- conf_matrix_NN1[2, 2] / sum(conf_matrix_NN1[, 2])
+f1_score_NN1 <- 2 * (precision_NN1 * recall_NN1) / (precision_NN1 + recall_NN1)
+
+# Print metrics
+cat("NN1 Results:\n")
+cat("Accuracy:", round(accuracy_NN1, 3), "\n")
+cat("Precision:", round(precision_NN1, 3), "\n")
+cat("Recall:", round(recall_NN1, 3), "\n")
+cat("F1 Score:", round(f1_score_NN1, 3), "\n")
+```
+
+### Create the data for NN2
+```{r}
+# Create a new dataframe with additional variables for NN2
+data_NN2 <- allgreI_filtered %>%
+  select(immobil, age, cspgroup, W, OCCU1, travdom, dispovp)
+
+# Handle missing values
+data_NN2 <- na.omit(data_NN2)
+
+# One-hot encode predictor variables for NN2
+predictors_NN2 <- data_NN2 %>% select(-immobil)
+data_NN2_encoded <- dummyVars(~., data = predictors_NN2)
+encoded_predictors_NN2 <- as.data.frame(predict(data_NN2_encoded, newdata = predictors_NN2))
+data_NN2 <- cbind(immobil = data_NN2$immobil, encoded_predictors_NN2)
+
+# Clean column names
+data_NN2 <- data_NN2 %>% mutate(immobil = ifelse(immobil == "Yes", 1, 0))
+colnames(data_NN2) <- gsub("[^[:alnum:]_]", "_", colnames(data_NN2))
+
+# Split into training and testing sets
+trainIndex2 <- createDataPartition(data_NN2$immobil, p = 0.7, list = FALSE)
+train_NN2 <- data_NN2[trainIndex2, ]
+test_NN2 <- data_NN2[-trainIndex2, ]
+```
+
+### Train NN2
+```{r}
+# Define formula
+formula_NN2 <- as.formula(paste("immobil ~", paste(colnames(train_NN2)[-1], collapse = " + ")))
+
+# Train the neural network
+nn2 <- neuralnet(formula_NN2,
+                 data = train_NN2,
+                 hidden = c(3, 3),
+                 linear.output = FALSE,
+                 stepmax = 100000)
+```
+
+
+```{r}
+plot(nn2)
+```
+
+### Evaluate NN2
+```{r}
+# Make predictions on the test set
+predictions_NN2 <- neuralnet::compute(nn2, test_NN2[, -1])$net.result
+
+# Convert probabilities to binary predictions
+predicted_class_NN2 <- ifelse(predictions_NN2 > 0.5, 1, 0)
+
+# Generate confusion matrix
+conf_matrix_NN2 <- table(Predicted = predicted_class_NN2, Actual = test_NN2$immobil)
+
+# Print confusion matrix
+print("Confusion Matrix for NN2:")
+print(conf_matrix_NN2)
+
+# Calculate performance metrics
+accuracy_NN2 <- sum(diag(conf_matrix_NN2)) / sum(conf_matrix_NN2)
+precision_NN2 <- conf_matrix_NN2[2, 2] / sum(conf_matrix_NN2[2, ])
+recall_NN2 <- conf_matrix_NN2[2, 2] / sum(conf_matrix_NN2[, 2])
+f1_score_NN2 <- 2 * (precision_NN2 * recall_NN2) / (precision_NN2 + recall_NN2)
+
+# Print metrics
+cat("NN2 Results:\n")
+cat("Accuracy:", round(accuracy_NN2, 3), "\n")
+cat("Precision:", round(precision_NN2, 3), "\n")
+cat("Recall:", round(recall_NN2, 3), "\n")
+cat("F1 Score:", round(f1_score_NN2, 3), "\n")
+```
+
+### Compare NN1 and NN2
+```{r}
+cat("Comparison:\n")
+cat("NN1 Accuracy:", round(accuracy_NN1, 3), " | NN2 Accuracy:", round(accuracy_NN2, 3), "\n")
+cat("NN1 Precision:", round(precision_NN1, 3), " | NN2 Precision:", round(precision_NN2, 3), "\n")
+cat("NN1 Recall:", round(recall_NN1, 3), " | NN2 Recall:", round(recall_NN2, 3), "\n")
+cat("NN1 F1 Score:", round(f1_score_NN1, 3), " | NN2 F1 Score:", round(f1_score_NN2, 3), "\n")
+```

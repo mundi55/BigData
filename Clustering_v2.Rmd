@@ -1,0 +1,168 @@
+---
+title: "Clustering_v2"
+author: "Mundi"
+date: "2025-01-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(caret)
+library(cluster)
+library(ggplot2)
+```
+
+```{r}
+# Load the data
+load("allgreI_filtered.RData")
+
+# Clustering Experiment 1: Original Input Variables
+data_cluster_1 <- allgreI_filtered %>% 
+  select(id_pers, immobil, age_group, cspgroup, W, OCCU1, travdom, dispovp)
+```
+
+```{r}
+# Preprocessing for Experiment 1
+data_cluster_1_processed <- data_cluster_1 %>% 
+  mutate(
+    immobil = as.numeric(as.factor(immobil)),
+    age_group = as.numeric(as.factor(age_group)),
+    cspgroup = as.numeric(as.factor(cspgroup)),
+    W = as.numeric(as.factor(W)),
+    OCCU1 = as.numeric(as.factor(OCCU1)),
+    travdom = as.numeric(as.factor(travdom))
+  ) %>% 
+  mutate(across(everything(), ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+```
+
+```{r}
+# Normalize data for Experiment 1
+preproc_1 <- preProcess(data_cluster_1_processed[-1], method = c("center", "scale"))
+data_cluster_1_normalized <- predict(preproc_1, data_cluster_1_processed[-1])
+
+# Perform K-means clustering for Experiment 1
+set.seed(123)
+k_1 <- 3
+kmeans_result_1 <- kmeans(data_cluster_1_normalized, centers = k_1, nstart = 25)
+data_cluster_1_processed$cluster <- kmeans_result_1$cluster
+```
+
+```{r}
+# Clustering Experiment 2: Reduced Input Variables
+data_cluster_2 <- allgreI_filtered %>% 
+  select(id_pers, immobil, dispovp, age_group, W)
+```
+
+```{r}
+# Preprocessing for Experiment 2
+data_cluster_2_processed <- data_cluster_2 %>% 
+  mutate(
+    immobil = as.numeric(as.factor(immobil)),
+    dispovp = as.numeric(as.factor(dispovp)),
+    W = as.numeric(as.factor(W))
+  ) %>% 
+  mutate(across(everything(), ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+```
+
+```{r}
+# Normalize data for Experiment 2
+preproc_2 <- preProcess(data_cluster_2_processed[-1], method = c("center", "scale"))
+data_cluster_2_normalized <- predict(preproc_2, data_cluster_2_processed[-1])
+
+# Perform K-means clustering for Experiment 2
+set.seed(123)
+k_2 <- 3
+kmeans_result_2 <- kmeans(data_cluster_2_normalized, centers = k_2, nstart = 25)
+data_cluster_2_processed$cluster <- kmeans_result_2$cluster
+```
+
+```{r}
+# Save results for both experiments
+save(data_cluster_1_processed, file = "data_cluster_1_with_clusters.RData")
+save(data_cluster_2_processed, file = "data_cluster_2_with_clusters.RData")
+```
+
+```{r}
+# Compare Clusters using PCA for Visualization
+# PCA for Experiment 1
+pca_result_1 <- prcomp(data_cluster_1_normalized, scale = TRUE)
+pca_data_1 <- as.data.frame(pca_result_1$x[, 1:2])
+pca_data_1$cluster <- as.factor(data_cluster_1_processed$cluster)
+pca_data_1$id_pers <- data_cluster_1$id_pers
+```
+
+```{r}
+# PCA for Experiment 2
+pca_result_2 <- prcomp(data_cluster_2_normalized, scale = TRUE)
+pca_data_2 <- as.data.frame(pca_result_2$x[, 1:2])
+pca_data_2$cluster <- as.factor(data_cluster_2_processed$cluster)
+pca_data_2$id_pers <- data_cluster_2$id_pers
+```
+
+```{r}
+# Visualization for Experiment 1
+ggplot(pca_data_1, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Cluster Visualization for Experiment 1", x = "Principal Component 1", y = "Principal Component 2")
+```
+
+```{r}
+# Visualization for Experiment 2
+ggplot(pca_data_2, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Cluster Visualization for Experiment 2", x = "Principal Component 1", y = "Principal Component 2")
+```
+
+```{r}
+# Compare distributions of clusters for key variables
+# Example: Distribution of "immobil" in Experiment 1
+data_cluster_1_processed$immobil <- as.factor(data_cluster_1$immobil)
+ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = immobil)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Distribution of Immobil Status Across Clusters (Exp 1)", x = "Cluster", y = "Proportion", fill = "Immobil Status")
+```
+
+```{r}
+# Example: Distribution of "immobil" in Experiment 2
+data_cluster_2_processed$immobil <- as.factor(data_cluster_2$immobil)
+ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = immobil)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Distribution of Immobil Status Across Clusters (Exp 2)", x = "Cluster", y = "Proportion", fill = "Immobil Status")
+```
+
+```{r}
+# Visualization for Experiment 1
+ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = as.factor(dispovp))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Distribution of dispovp (Exp 1)", x = "Cluster", y = "Proportion", fill = "dispovp")
+
+ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = as.factor(age_group))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Distribution of Age Group Across Clusters (Exp 1)", x = "Cluster", y = "Proportion", fill = "Age Group")
+```
+
+```{r}
+# Visualization for Experiment 2
+ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = as.factor(dispovp))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Distribution of dispovp (Exp 2)", x = "Cluster", y = "Proportion", fill = "dispovp")
+
+ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = as.factor(age_group))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Distribution of Age Group Across Clusters (Exp 2)", x = "Cluster", y = "Proportion", fill = "Age Group")
+```
+
+
