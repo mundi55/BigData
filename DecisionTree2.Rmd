@@ -1,0 +1,97 @@
+---
+title: "Mobility_behaviour_Decision_Tree_4th_Try"
+output: html_document
+date: "2025-01-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+
+library(skimr)
+library(dplyr)
+library(randomForest)
+library(rpart)  # Für den Entscheidungsbaum
+library(rpart.plot)  # Für die Visualisierung des Entscheidungsbaums
+library(caret)
+
+
+# Load the necessary dataset
+load("C:/SAProject/Files_OK_SABD_Prject/allgreI.RData") 
+#load("C:/SAProject/Files_OK_SABD_Prject/allgreM.RData")
+#load("C:/SAProject/Files_OK_SABD_Prject/allgreD.RData")
+load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_with_W.RData")
+
+
+# Zufällige Teilung von allgreI in Trainings- und Testdaten (70%-30%)
+set.seed(123) # Für Reproduzierbarkeit
+
+# Erzeuge zufällige Indizes für die Trainingsdaten von allgreI
+train_indices <- sample(1:nrow(allgreI), size = 0.7 * nrow(allgreI))
+
+# Teile allgreI auf
+allgreI_filtered_train <- allgreI_filtered[train_indices, ]
+allgreI_filtered_test <- allgreI_filtered[-train_indices, ]
+
+# Bestätige die Aufteilung
+dim(allgreI_filtered_train) # Zeigt die Dimensionen der Trainingsdaten
+dim(allgreI_filtered_test)  # Zeigt die Dimensionen der Testdaten
+
+class(allgreI_filtered_test$immobil)
+class(allgreI_filtered_train$immobil)
+```
+
+```{r}
+model_tree10 <- rpart(
+  immobil ~ age_group + dispovp + W,  # Drei erklärende Variablen
+  data = allgreI_filtered_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_tree10)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_tree10)
+
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_tree10, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_tree10 <- predict(model_tree10, newdata = allgreI_filtered_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree10, Actual = allgreI_filtered_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree10, allgreI_filtered_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+accuracy_tree
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
