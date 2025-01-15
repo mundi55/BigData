@@ -25,10 +25,17 @@ load("C:/SAProject/Files_OK_SABD_Prject/allgreI.RData")
 load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_with_W.RData")
 
 # Merge allgreI_filtered mit der Spalte age aus allgreI
-allgreI_filtered <- merge(allgreI_filtered, 
-                          allgreI[, c("id_pers", "age")], 
-                          by = "id_pers", 
-                          all.x = TRUE)
+# Erstelle eine Kopie des Datensatzes
+allgreI_filtered_copy <- allgreI_filtered
+
+# Führe die gewünschte Manipulation nur auf der Kopie durch
+allgreI_filtered_copy <- merge(allgreI_filtered_copy, 
+                               allgreI[, c("id_pers", "age")], 
+                               by = "id_pers", 
+                               all.x = TRUE)
+
+# Verwende ab hier die Kopie `allgreI_filtered_copy` für weitere Analysen
+
 
 
 # Zufällige Teilung von allgreI in Trainings- und Testdaten (70%-30%)
@@ -38,21 +45,21 @@ set.seed(123) # Für Reproduzierbarkeit
 train_indices <- sample(1:nrow(allgreI), size = 0.7 * nrow(allgreI))
 
 # Teile allgreI auf
-allgreI_filtered_train <- allgreI_filtered[train_indices, ]
-allgreI_filtered_test <- allgreI_filtered[-train_indices, ]
+allgreI_filtered_copy_train <- allgreI_filtered_copy[train_indices, ]
+allgreI_filtered_copy_test <- allgreI_filtered_copy[-train_indices, ]
 
 # Bestätige die Aufteilung
-dim(allgreI_filtered_train) # Zeigt die Dimensionen der Trainingsdaten
-dim(allgreI_filtered_test)  # Zeigt die Dimensionen der Testdaten
+dim(allgreI_filtered_copy_train) # Zeigt die Dimensionen der Trainingsdaten
+dim(allgreI_filtered_copy_test)  # Zeigt die Dimensionen der Testdaten
 
-class(allgreI_filtered_test$immobil)
-class(allgreI_filtered_train$immobil)
+class(allgreI_filtered_copy_test$immobil)
+class(allgreI_filtered_copy_train$immobil)
 ```
 
 ```{r}
 model_tree10 <- rpart(
   immobil ~ age + dispovp + W,  # Drei erklärende Variablen
-  data = allgreI_filtered_train,      # Trainingsdatensatz
+  data = allgreI_filtered_copy_train,      # Trainingsdatensatz
   method = "class"          # Klassifikationsbaum
 )
 
@@ -67,15 +74,15 @@ library(rpart.plot)
 rpart.plot(model_tree10, type = 3, extra = 104, fallen.leaves = TRUE)
 
 # Vorhersage auf den Testdaten
-pred_tree10 <- predict(model_tree10, newdata = allgreI_filtered_test, type = "class")
+pred_tree10 <- predict(model_tree10, newdata = allgreI_filtered_copy_test, type = "class")
 
 # Evaluierung der Modellgüte mit einer Konfusionsmatrix
-conf_matrix_tree <- table(Predicted = pred_tree10, Actual = allgreI_filtered_test$immobil)
+conf_matrix_tree <- table(Predicted = pred_tree10, Actual = allgreI_filtered_copy_test$immobil)
 conf_matrix_tree
 
 
 #Test
-confusionMatrix(pred_tree10, allgreI_filtered_test$immobil)
+confusionMatrix(pred_tree10, allgreI_filtered_copy_test$immobil)
 
 # Berechne die Genauigkeit (Accuracy)
 accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
