@@ -1,0 +1,229 @@
+---
+title: "Starting-Decision-Tree"
+output: html_document
+date: "2025-01-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+
+library(skimr)
+library(dplyr)
+library(randomForest)
+library(rpart)  # Für den Entscheidungsbaum
+library(rpart.plot)  # Für die Visualisierung des Entscheidungsbaums
+library(caret)
+
+
+# Load the necessary dataset
+load("C:/SAProject/Files_OK_SABD_Prject/allgreI.RData") 
+load("C:/SAProject/Files_OK_SABD_Prject/allgreM.RData")
+load("C:/SAProject/Files_OK_SABD_Prject/allgreD.RData")
+load("C:/SAProject/Files_OK_SABD_Prject/allgreI_with_fullygrouped.RData")
+```
+
+```{r}
+# Merge allgreI_filtered mit der Spalte age aus allgreI
+# Erstelle eine Kopie des Datensatzes
+allgreI_filtered_copy <- allgreI_filtered
+
+# Verwende ab hier die Kopie `allgreI_filtered_copy` für weitere Analysen
+
+
+
+# Zufällige Teilung von allgreI in Trainings- und Testdaten (70%-30%)
+set.seed(123) # Für Reproduzierbarkeit
+
+# Erzeuge zufällige Indizes für die Trainingsdaten von allgreI
+train_indices <- sample(1:nrow(allgreI), size = 0.7 * nrow(allgreI))
+
+# Teile allgreI auf
+allgreI_filtered_copy_train <- allgreI_filtered_copy[train_indices, ]
+allgreI_filtered_copy_test <- allgreI_filtered_copy[-train_indices, ]
+
+# Bestätige die Aufteilung
+dim(allgreI_filtered_copy_train) # Zeigt die Dimensionen der Trainingsdaten
+dim(allgreI_filtered_copy_test)  # Zeigt die Dimensionen der Testdaten
+
+class(allgreI_filtered_copy_test$immobil)
+class(allgreI_filtered_copy_train$immobil)
+
+str(allgreI_filtered_copy)
+```
+
+```{r}
+model_treeBaseModel0 <- rpart(
+  immobil ~ cspgroup + sexe + has_car + age_group + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers + fullygrouped,  # Drei erklärende Variablen
+  data = allgreI_filtered_copy_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_treeBaseModel0)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_treeBaseModel0)
+
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_treeBaseModel0 <- predict(model_treeBaseModel0, newdata = allgreI_filtered_copy_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel0, Actual = allgreI_filtered_copy_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_treeBaseModel0, allgreI_filtered_copy_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+cat("Accuracy:", accuracy_tree, "\n")
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+```{r}
+# same model like before, just age instead of age_group
+model_treeBaseModel1 <- rpart(
+  immobil ~ cspgroup + sexe + has_car + age + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers + fullygrouped,  # Drei erklärende Variablen
+  data = allgreI_filtered_copy_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_treeBaseModel1)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_treeBaseModel1)
+
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_treeBaseModel1, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_treeBaseModel1 <- predict(model_treeBaseModel1, newdata = allgreI_filtered_copy_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel1, Actual = allgreI_filtered_copy_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_treeBaseModel1, allgreI_filtered_copy_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+cat("Accuracy:", accuracy_tree, "\n")
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+```{r}
+# Entfernen der Beobachtungen mit age < 5
+allgreI_filtered_copy_5yearsOrOlder_train <- allgreI_filtered_copy_train[allgreI_filtered_copy_train$age >= 5, ]
+
+allgreI_filtered_copy_5yearsOrOlder_test <- allgreI_filtered_copy_test[allgreI_filtered_copy_test$age >= 5, ]
+
+
+
+# Optional: Überprüfen, ob die Filterung erfolgreich war
+summary(allgreI_filtered_copy_5yearsOrOlder_train$age)
+
+
+```
+
+```{r}
+# same model like before, so age instead of age_group and only people above 5 years old
+model_treeBaseModel2 <- rpart(
+  immobil ~ cspgroup + sexe + has_car + age + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers + fullygrouped,  # Drei erklärende Variablen
+  data = allgreI_filtered_copy_5yearsOrOlder_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_treeBaseModel2)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_treeBaseModel2)
+
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_treeBaseModel2, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_treeBaseModel2 <- predict(model_treeBaseModel2, newdata = allgreI_filtered_copy_5yearsOrOlder_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel2, Actual = allgreI_filtered_copy_5yearsOrOlder_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_treeBaseModel2, allgreI_filtered_copy_5yearsOrOlder_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+cat("Accuracy:", accuracy_tree, "\n")
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+
