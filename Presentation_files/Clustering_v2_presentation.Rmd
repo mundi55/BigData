@@ -1,0 +1,185 @@
+---
+title: "Clustering_v2"
+author: "Mundi"
+date: "2025-01-15"
+output: html_document
+---
+
+```{r setup-clustering, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+# Load necessary libraries
+library(dplyr)
+library(caret)
+library(cluster)
+library(ggplot2)
+```
+
+```{r, include=FALSE}
+# Load the data
+load("allgreI_clustering.RData")
+
+# Clustering Experiment 1: Original Input Variables
+data_cluster_1 <- allgreI_filtered %>% 
+  select(id_pers, immobil, age_group, cspgroup, W, OCCU1, travdom, dispovp)
+```
+
+```{r, include=FALSE}
+# Preprocessing for Experiment 1
+data_cluster_1_processed <- data_cluster_1 %>% 
+  mutate(
+    immobil = as.numeric(as.factor(immobil)),
+    age_group = as.numeric(as.factor(age_group)),
+    cspgroup = as.numeric(as.factor(cspgroup)),
+    W = as.numeric(as.factor(W)),
+    OCCU1 = as.numeric(as.factor(OCCU1)),
+    travdom = as.numeric(as.factor(travdom))
+  ) %>% 
+  mutate(across(everything(), ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+```
+
+```{r, include=FALSE}
+# Normalize data for Experiment 1
+preproc_1 <- preProcess(data_cluster_1_processed[-1], method = c("center", "scale"))
+data_cluster_1_normalized <- predict(preproc_1, data_cluster_1_processed[-1])
+
+# Perform K-means clustering for Experiment 1
+set.seed(123)
+k_1 <- 3
+kmeans_result_1 <- kmeans(data_cluster_1_normalized, centers = k_1, nstart = 25)
+data_cluster_1_processed$cluster <- kmeans_result_1$cluster
+```
+
+```{r, include=FALSE}
+# Clustering Experiment 2: Reduced Input Variables
+data_cluster_2 <- allgreI_filtered %>% 
+  select(id_pers, immobil, dispovp, age_group, W)
+```
+
+```{r, include=FALSE}
+# Preprocessing for Experiment 2
+data_cluster_2_processed <- data_cluster_2 %>% 
+  mutate(
+    immobil = as.numeric(as.factor(immobil)),
+    dispovp = as.numeric(as.factor(dispovp)),
+    W = as.numeric(as.factor(W))
+  ) %>% 
+  mutate(across(everything(), ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+```
+
+```{r, include=FALSE}
+# Normalize data for Experiment 2
+preproc_2 <- preProcess(data_cluster_2_processed[-1], method = c("center", "scale"))
+data_cluster_2_normalized <- predict(preproc_2, data_cluster_2_processed[-1])
+
+# Perform K-means clustering for Experiment 2
+set.seed(123)
+k_2 <- 3
+kmeans_result_2 <- kmeans(data_cluster_2_normalized, centers = k_2, nstart = 25)
+data_cluster_2_processed$cluster <- kmeans_result_2$cluster
+```
+
+```{r, include=FALSE}
+# Save results for both experiments
+save(data_cluster_1_processed, file = "data_cluster_1_with_clusters.RData")
+save(data_cluster_2_processed, file = "data_cluster_2_with_clusters.RData")
+```
+
+```{r, include=FALSE}
+# Compare Clusters using PCA for Visualization
+# PCA for Experiment 1
+pca_result_1 <- prcomp(data_cluster_1_normalized, scale = TRUE)
+pca_data_1 <- as.data.frame(pca_result_1$x[, 1:2])
+pca_data_1$cluster <- as.factor(data_cluster_1_processed$cluster)
+pca_data_1$id_pers <- data_cluster_1$id_pers
+```
+
+```{r, include=FALSE}
+# PCA for Experiment 2
+pca_result_2 <- prcomp(data_cluster_2_normalized, scale = TRUE)
+pca_data_2 <- as.data.frame(pca_result_2$x[, 1:2])
+pca_data_2$cluster <- as.factor(data_cluster_2_processed$cluster)
+pca_data_2$id_pers <- data_cluster_2$id_pers
+```
+
+
+
+```{r, echo=FALSE, out.width='80%', out.height='80%'}
+# Visualization for Experiment 1
+ggplot(pca_data_1, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Cluster Visualization for Experiment 1", x = "Principal Component 1", y = "Principal Component 2")
+```
+
+
+```{r, include=FALSE}
+# Visualization for Experiment 2
+ggplot(pca_data_2, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Cluster Visualization for Experiment 2", x = "Principal Component 1", y = "Principal Component 2")
+```
+
+
+# Immobile Status
+```{r, echo=FALSE, out.width='80%', out.height='80%'}
+library(patchwork)
+# Example: Distribution of "immobil" in Experiment 2
+data_cluster_2_processed$immobil <- as.factor(data_cluster_2$immobil)
+plot2 <- ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = immobil)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Exp 2", x = "Cluster", y = "Proportion", fill = "Immobil Status")
+
+# Example: Distribution of "immobil" in Experiment 1
+data_cluster_1_processed$immobil <- as.factor(data_cluster_1$immobil)
+plot1 <- ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = immobil)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = " Exp 1", x = "Cluster", y = "Proportion", fill = "Immobil Status")
+
+# Combine the two plots side by side
+combined_plot <- plot1 + plot2 + plot_layout(ncol = 2)
+
+# Print the combined plot
+print(combined_plot)
+```
+
+
+# Cluster properties 
+```{r, echo=FALSE, out.width='80%', out.height='80%'}
+# Visualization for Experiment 1
+plot1 <- ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = as.factor(dispovp))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Distribution of dispovp (Exp 1)", x = "Cluster", y = "Proportion", fill = "dispovp")
+
+plot2 <- ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = as.factor(age_group))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Age Group Across Clusters (Exp 1)", x = "Cluster", y = "Proportion", fill = "Age Group")
+
+# Visualization for Experiment 2
+plot3 <- ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = as.factor(dispovp))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Distribution of dispovp (Exp 2)", x = "Cluster", y = "Proportion", fill = "dispovp")
+
+plot4 <- ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = as.factor(age_group))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Age Group Across Clusters (Exp 2)", x = "Cluster", y = "Proportion", fill = "Age Group")
+
+# Combine all four plots in a grid layout (2x2)
+combined_plot <- (plot1 | plot2) / (plot3 | plot4)
+
+# Print the combined plot
+print(combined_plot)
+```
+
+
+
+

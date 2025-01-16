@@ -1,0 +1,189 @@
+---
+title: "Mobility behavior of mobile and immobile people"
+author: "G. Arnarson, F. Bartke, M. Van Laere, S. Nguyen"
+institute: "Grenoble INP - Génie industriel, UGA" 
+date: "`r Sys.Date()`"
+output: beamer_presentation
+pdf_engine: XeLaTeX
+theme: "Antibes"
+colortheme: "beaver" 
+header-includes:
+- |
+    \setbeamertemplate{footline}{
+      \leavevmode%
+      \hbox{\hspace*{0.3cm}G. Arnarson, F. Bartke, M. Van Laere, S. Nguyen \hfill \hspace*{7cm}\insertframenumber{} / \inserttotalframenumber}%
+      \vskip0pt%
+    }
+- \DeclareUnicodeCharacter{2587}{}
+- \DeclareUnicodeCharacter{2583}{}
+- \DeclareUnicodeCharacter{2581}{}
+- \DeclareUnicodeCharacter{2582}{}
+- \DeclareUnicodeCharacter{2586}{}
+- \DeclareUnicodeCharacter{2585}{}
+- \DeclareUnicodeCharacter{2705}{}
+- \DeclareUnicodeCharacter{2060}{}
+- \usepackage{fontawesome}
+- \DeclareUnicodeCharacter{26A0}{}
+- \DeclareUnicodeCharacter{1F4CA}{}
+- \DeclareUnicodeCharacter{FE0F}{}
+- \setbeamerfont{verbatim}{size=\tiny}
+- \usepackage{pgfplots}
+- \pgfplotsset{compat=1.18}
+
+
+
+---
+
+
+
+```{r setup-presentation, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)     # For data visualization
+library(dplyr)       # For data manipulation (e.g., mutate, rename)
+library(tidyr)       # For data tidying (e.g., handling missing values)
+library(skimr) 
+library(caTools)
+library(pROC)
+library(officer)
+
+```
+
+
+
+# Agenda
+1. ⁠Research question
+
+2. ⁠Literature review and variables choice
+
+3. ⁠Dataset preparation
+
+5. ⁠Data exploration
+
+6. ⁠Logistic regression
+
+7. ⁠Regression tree 
+
+8. ⁠Random forest
+
+9. ⁠Neural networks
+
+10. ⁠Comparison of models
+
+# Research question:
+\LARGE  
+How are immobile people characterized and with which model can they best be predicted?
+<!-- We say that we are going to research which variables are significant to see whether someone is mobile or not. Then we will see which model (and with which variables) we can best predict which people are immobile. This can be useful to see for example where new bus lines should be introduced or more infrastructure is necessary -->
+
+# Literature review and variables
+
+-   5 papers: about car ownership, travel without car ownership and determinants of immobility
+
+-  \large Variables we identified through literature: 
+ \normalsize age, working status, health, sex, household, income, possession of a car, living area and space, distance to shops
+
+-  ⁠\large Variables we identified through common sense: 
+ \normalsize spc, remote or home work, possession of bike or motorcycle, distance to public transport
+
+ - Variables from the dataset we want to consider: immobil, cspgroup, sexe, dispovp, age, nb_pers, TYPE_HAB, NB_2Rm, zoneres.x, Gare2, PBM_STAT, STAT_TRAV, OCCU1, travdom, tir
+
+
+# Dataset preparation 
+
+- ⁠Merging the 3 given datasets
+- ⁠Selecting the relevant variables
+- ⁠Factorizing, naming categories, redefining certain variables, grouping categories
+- ⁠Adding the W variable -> possibility of travel (Nb_2Rm, Nb_velo, dispovp, ABO_TC, abonpeage, LIEU_STAT)
+
+
+
+# Dataset preperation
+```{r child=("/Users/felixbartke/Desktop/Data_manip_presentation.Rmd"), echo=TRUE}
+
+```
+
+
+
+# Data exploration
+```{r child=("/Users/felixbartke/Desktop/Data exploration_presentation.Rmd"), echo=TRUE}
+
+```
+
+
+
+
+
+# Data exploration
+![](/Users/felixbartke/Desktop/image.png)
+
+
+# Data exploration
+![](/Users/felixbartke/Desktop/image-2.png) 
+
+
+# Logit model: age + dispoDP + W
+```{r child=("/Users/felixbartke/Desktop/Logit model_presentation.Rmd"), echo=TRUE}
+
+```
+
+
+# Decision tree
+
+![](/Users/felixbartke/Desktop/Baum3.png)
+
+
+# Comparison of Decision Trees
+```{r child=("/Users/felixbartke/Desktop/DecisionTree3-Version2_presentation.Rmd"), echo=TRUE}
+
+```
+
+# Random forest variable importance
+![](/Users/felixbartke/Desktop/Bild2.png)
+
+# Random forest variable importance
+![](/Users/felixbartke/Desktop/Bild1.png)
+
+
+
+# Clustering
+
+```{r child=("/Users/felixbartke/Desktop/Clustering_v2_presentation.Rmd"), echo=TRUE}
+
+```
+
+
+
+# Simple Neural network
+![](/Users/felixbartke/Desktop/Simple_NN1.png)
+```{r child=("/Users/felixbartke/Desktop/NN_v3_presentation.Rmd"), echo=TRUE}
+
+```
+
+
+
+# Comparison of the models
+
+```{r, echo=FALSE}
+# Erstellen Sie die Datenrahmen-Tabelle in R
+model_performance <- data.frame(
+  Model = c("Logit Model", "Decision tree", "Random Forest", "Neural Network1", "Neural Network2"),
+  Accuracy = c(0.884, 0.900, 0.881, 0.900, 0.954),
+  Precision = c(0.525, 0.450, 0.725, 0.926, 0.700),
+  Recall = c(0.432, 0.870 , 0.221, 0.384, 0.233),
+  F_score = c(0.474, 0.590 , 0.339, 0.543, 0.350)
+)
+
+# Ausgabe der Tabelle
+model_performance
+```
+
+
+
+
+# Thank you for your attention
+
+\LARGE Are there any questions?
+
+
+
+
+

@@ -1,0 +1,222 @@
+---
+title: "Data exploration"
+output: html_document
+date: "2025-01-14"
+header-includes:
+- \setbeamerfont{verbatim}{size=\tiny}
+---
+
+
+```{r, include=FALSE}
+load("allgreI_filtered.RData")
+```
+
+
+
+
+
+```{r, include=FALSE}
+# Chi-kwadraat test voor alle categorische variabelen ten opzichte van 'immobil'
+cat_vars <- c("cspgroup", "sexe", "has_car", "age_group", "TYPE_HAB", "parking_diff", "W", "OCCU1", "travdom", "nb_pers", "parking_diff", "retrait", "fullygrouped")
+
+for (var in cat_vars) {
+  cat("\n\nChi-kwadraat test tussen immobil en", var, ":\n")
+  tbl <- table(allgreI_filtered$immobil, allgreI_filtered[[var]])
+  test_result <- chisq.test(tbl)
+  print(test_result)
+}
+
+# T-toets voor alle numerieke variabelen ten opzichte van 'immobil'
+# Eerst identificeren welke variabelen numeriek zijn
+num_vars <- sapply(allgreI_filtered, is.numeric)
+num_vars <- names(num_vars[num_vars == TRUE])
+
+for (var in num_vars) {
+  cat("\n\nT-toets tussen immobil en", var, ":\n")
+  t_test_result <- t.test(allgreI_filtered[[var]] ~ allgreI_filtered$immobil)
+  print(t_test_result)
+}
+
+```
+
+```{r, include=FALSE}
+library(car)
+
+# Logit model met alle significante variabelen
+logit_model <- glm(immobil ~ cspgroup + sexe + has_car + age_group + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers + fullygrouped + parking_diff,
+                   data = allgreI_filtered, family = binomial)
+
+# Bereken de Variance Inflation Factor (VIF)
+vif_values <- vif(logit_model)
+
+
+```
+
+```{r, include=FALSE}
+allgreI <- allgreI %>%
+  mutate(immobil = ifelse(nbd == 0, 1, 0))
+
+# Check if the variable was created correctly
+table(allgreI$immobil)
+
+# Bekijk unieke waarden van zoneres.x
+unique_zones <- unique(allgreI$tir)
+print(unique_zones)
+
+# Bekijk de frequentie (distributie) van de waarden in zoneres.x
+table_zones <- table(allgreI$tir)
+print(table_zones)
+
+# Visualiseer de distributie met een staafdiagram
+library(ggplot2)
+
+ggplot(allgreI, aes(x = factor(tir))) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distributie van tir",
+       x = "Woonzone (tir)",
+       y = "tir") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+# Nieuwe variabele tirgroup aanmaken
+allgreI <- allgreI %>%
+  mutate(tirgroup = case_when(
+    tir >= 101 & tir <= 114 ~ "Grenoble",
+    tir >= 115 & tir <= 143 ~ "Urban around Grenoble",
+    tir >= 201 & tir <= 205 ~ "Bièvre",
+    tir >= 301 & tir <= 314 ~ "Grésivaudan",
+    tir >= 401 & tir <= 403 ~ "Sud Grenoble",
+    tir >= 501 & tir <= 519 ~ "Voiron",
+    tir >= 601 & tir <= 603 ~ "Sud de Voiron",
+    tir >= 701 & tir <= 903 ~ "Montagnes",
+    TRUE ~ "Overig"
+  ))
+
+# Controleer of tirgroup correct is aangemaakt
+table(allgreI$tirgroup)
+
+# Visualiseer de distributie van tirgroup met een staafdiagram
+ggplot(allgreI, aes(x = tirgroup)) +
+  geom_bar(fill = "darkgreen") +
+  labs(title = "Distributie van tirgroup",
+       x = "Groepen van Woonzones (tirgroup)",
+       y = "Frequentie") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+# Nieuwe variabele fullygrouped aanmaken
+allgreI <- allgreI %>%
+  mutate(fullygrouped = case_when(
+    tirgroup %in% c("Grenoble", "Voiron") ~ "City",
+    tirgroup == "Montagnes" ~ "Montagnes",
+    TRUE ~ "Rural"
+  ))
+
+# Controleer of fullygrouped correct is aangemaakt
+table(allgreI$fullygrouped)
+
+# Visualiseer de distributie van fullygrouped met een staafdiagram
+ggplot(allgreI, aes(x = fullygrouped)) +
+  geom_bar(fill = "purple") +
+  labs(title = "Distributie van fullygrouped",
+       x = "Samengevoegde Groepen (fullygrouped)",
+       y = "Frequentie") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+```
+
+```{r, include=FALSE}
+# Analyseer de correlatie tussen fullygrouped en immobil
+# Maak een kruistabel aan om de relatie te bekijken
+table_correlation_fully <- table(allgreI$fullygrouped, allgreI$immobil)
+print(table_correlation_fully)
+
+# Analyseer de correlatie tussen tirgroup en immobil
+table_correlation_tirgroup <- table(allgreI$tirgroup, allgreI$immobil)
+print(table_correlation_tirgroup)
+
+chi_test_tirgroup <- chisq.test(table_correlation_tirgroup)
+print(chi_test_tirgroup)
+
+# Voer een Chi-kwadraat test uit om de associatie te testen
+chi_test_fully <- chisq.test(table_correlation_fully)
+print(chi_test_fully)
+
+# Visualiseer de verhouding van immobil binnen fullygrouped
+ggplot(allgreI, aes(x = fullygrouped, fill = factor(immobil))) +
+  geom_bar(position = "fill") +
+  labs(title = "Relatie tussen fullygrouped en immobil",
+       x = "Samengevoegde Groepen (fullygrouped)",
+       y = "Proportie",
+       fill = "Immobile") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+# Visualiseer de verhouding van immobil binnen fullygrouped
+ggplot(allgreI, aes(x = tirgroup, fill = factor(immobil))) +
+  geom_bar(position = "fill") +
+  labs(title = "Relatie tussen fullygrouped en immobil",
+       x = "Samengevoegde Groepen (tirgroup)",
+       y = "Proportie",
+       fill = "Immobile") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+```
+
+
+\tiny
+```{r, echo=FALSE}
+# Verzamel resultaten van Chi-kwadraat test voor categorische variabelen
+cat_vars <- c("cspgroup", "sexe", "has_car", "age_group", "TYPE_HAB", "parking_diff", "W", "OCCU1", "travdom", "nb_pers", "parking_diff", "retrait", "fullygrouped")
+
+# Initialiseer een lege dataframe voor Chi-kwadraat resultaten
+chi_sq_results <- data.frame(Variabel = character(),
+                             Testtype = character(),
+                             P_value = numeric(), 
+                             Significant = character(),
+                             stringsAsFactors = FALSE)
+
+for (var in cat_vars) {
+  tbl <- table(allgreI_filtered$immobil, allgreI_filtered[[var]])
+  test_result <- chisq.test(tbl)
+  significant <- ifelse(test_result$p.value < 0.05, "Yes", "No")
+  chi_sq_results <- rbind(chi_sq_results, data.frame(Variabel = var,
+                                                     Testtype = "Chisquare",
+                                                     P_value = test_result$p.value,  # Use the exact p-value here
+                                                     Significant = significant))
+}
+
+# Verzamel resultaten van T-test voor numerieke variabelen
+num_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.numeric)]
+
+# Initialiseer een lege dataframe voor T-test resultaten
+t_test_results <- data.frame(Variabel = character(),
+                             Testtype = character(),
+                             P_value = numeric(),
+                             Significant = character(),
+                             stringsAsFactors = FALSE)
+
+for (var in num_vars) {
+  t_test_result <- t.test(allgreI_filtered[[var]] ~ allgreI_filtered$immobil)
+  significant <- ifelse(t_test_result$p.value < 0.05, "Yes", "No")
+  t_test_results <- rbind(t_test_results, data.frame(Variabel = var,
+                                                     Testtype = "T-test",
+                                                     P_value = t_test_result$p.value,  # Use the exact p-value here
+                                                     Significant = significant))
+}
+
+# Combineer beide resultaten
+test_results <- rbind(chi_sq_results, t_test_results)
+
+# Bekijk de gecombineerde resultaten
+print(test_results)
+
+```
+# Data exploration
+```{r, echo=FALSE}
+print(vif_values)
+```
+
+
