@@ -1,0 +1,604 @@
+---
+title: "Data_manip"
+author: "Mundi"
+date: "2025-01-09"
+output: html_document
+header-includes:
+- \setbeamerfont{verbatim}{size=\tiny}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, include=FALSE}
+library(ggplot2)     # For data visualization
+library(dplyr)       # For data manipulation (e.g., mutate, rename)
+library(tidyr)       # For data tidying (e.g., handling missing values)
+library(skimr)       # For quick data summaries
+```
+
+
+
+```{r, include=FALSE}
+load("/Users/felixbartke/Desktop/allgreI.RData")
+load("/Users/felixbartke/Desktop/allgreD.RData")
+load("/Users/felixbartke/Desktop/allgreM.RData")
+
+skim(allgreI)
+skim(allgreD)
+skim(allgreM)
+```
+
+```{r, include=FALSE}
+str(allgreI)
+str(allgreD)
+str(allgreM)
+```
+
+
+```{r, include=FALSE}
+# Create a new variable 'immobil': 1 if `nbd` = 0 (immobile), otherwise 0
+allgreI <- allgreI %>%
+  mutate(immobil = ifelse(nbd == 0, 1, 0))
+
+# Check if the variable was created correctly
+table(allgreI$immobil)
+```
+
+
+```{r, include=FALSE}
+# Filter the dataset to include only the specified columns
+allgreI_filtered <- allgreI %>% select(id_pers, immobil, cspgroup, sexe, dispovp, age)
+
+# Verify the new filtered dataset
+skim(allgreI_filtered)
+```
+
+
+
+
+```{r, include=FALSE}
+# Replace NA values in dispovp with 0
+allgreI_filtered$dispovp[is.na(allgreI$dispovp)] <- 0
+
+# Confirm that there are no NA values in VP_DISPO
+sum(is.na(allgreI_filtered$dispovp))
+```
+
+
+
+```{r, include=FALSE}
+# Create age groups and remove the 'age' variable
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    age_group = cut(
+      age, 
+      breaks = c(0, 20, 60, Inf),  # Breakpoints for age groups
+      labels = c("0-20", "20-60", "60+"),
+      right = FALSE  # Exclude the upper limit
+    )
+  ) #%>%
+  #select(-age)  # Remove the 'age' column
+
+# Verify that 'age' has been removed
+str(allgreI_filtered)
+
+```
+```{r, include=FALSE}
+# Transformations and variable creations
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    # Convert Y to a binary factor with meaningful labels
+    immobil = factor(immobil, levels = c(0, 1), labels = c("No", "Yes")),
+    
+    # Convert cspgroup from integer to factor
+    cspgroup = factor(cspgroup),
+    
+    # Add a binary variable indicating whether there is at least one car
+    has_car = ifelse(dispovp > 0, 1, 0),
+    
+    # Convert has_car to a factor for binary interpretation
+    has_car = factor(has_car, levels = c(0, 1), labels = c("No", "Yes")),
+    
+    # Convert sexe to a factor with labels Male and Female
+    sexe = factor(sexe, levels = c(1, 2), labels = c("Male", "Female"))
+  )
+
+# Verify the changes
+str(allgreI_filtered)
+```
+
+
+
+```{r, include=FALSE}
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    cspgroup_combined = case_when(
+      cspgroup %in% c("2", "5", "6", "8", "9") ~ "non_significant", # Niet-significante groepen
+      TRUE ~ as.character(cspgroup) # Overige groepen behouden
+    )
+  )
+
+# Zet de nieuwe variabele om in een factor
+allgreI_filtered$cspgroup_combined <- as.factor(allgreI_filtered$cspgroup_combined)
+
+# Controleer de verdeling van de nieuwe variabele
+cat("Distribution of cspgroup_combined:\n")
+print(table(allgreI_filtered$cspgroup_combined))
+
+# Verwijder 'cspgroup' en voeg 'cspgroup_combined' toe aan allgreI
+allgreI_filtered <- allgreI_filtered %>%
+  select(-cspgroup) %>%    # Verwijder de kolom 'cspgroup'
+  rename(cspgroup = cspgroup_combined)  # Hernoem 'cspgroup_combined' naar 'cspgroup'
+
+# Controleer of de wijziging correct is doorgevoerd
+str(allgreI_filtered)
+
+
+```
+
+
+
+
+```{r, include=FALSE}
+# Datasets samenvoegen op basis van 'id_pers'
+merged_data <- allgreM %>%
+  inner_join(allgreI, by = c("id_men", "id_pers")) %>%
+  inner_join(allgreD, by = c("id_men", "id_pers", "id_depl"))
+
+
+# Controleer de eerste paar rijen van de samengevoegde dataset
+head(merged_data)
+```
+
+
+
+```{r, include=FALSE}
+# Analyze missing values in the relevant variables
+missing_summary <- merged_data %>%
+  select(NB_velo, dispovp, ABO_TC, abonpeage, LIEU_STAT, NB_2Rm) %>%
+  summarise_all(~sum(is.na(.)))
+
+# Print the summary of missing values
+print(missing_summary)
+
+# Visualize the distribution of each variable
+merged_data_long <- merged_data %>%
+  select(NB_velo, dispovp, ABO_TC, abonpeage, LIEU_STAT) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value")
+
+# Plot the distribution per variable
+ggplot(merged_data_long, aes(x = as.factor(Value))) +
+  geom_bar() +
+  facet_wrap(~Variable, scales = "free") +
+  labs(title = "Distribution of Variables",
+       x = "Value",
+       y = "Frequency") +
+  theme_minimal()
+
+# Alternative visualization of missing values with 'naniar' (optional)
+# library(naniar)
+# vis_miss(merged_data %>% select(NB_velo, VP_DISPO, dispovp, ABO_TC, abonpeage, LIEU_STAT))
+
+# New chunk: Convert NA to 0 for 'abonpeage', 'dispovp', and 'LIEU_STAT'
+merged_data <- merged_data %>%
+  mutate(
+    abonpeage = replace_na(abonpeage, 0),
+    dispovp = replace_na(dispovp, 0),
+    LIEU_STAT = replace_na(LIEU_STAT, 0)
+  )
+
+# Check if the conversion was successful
+missing_summary_updated <- merged_data %>%
+  select(abonpeage, dispovp, LIEU_STAT) %>%
+  summarise_all(~sum(is.na(.)))
+
+print(missing_summary_updated)
+
+```
+
+
+```{r, echo=FALSE, out.width='80%', out.height='80%'}
+# Load necessary library
+library(ggplot2)
+
+# Plot the distribution of the 'immobil' variable
+ggplot(allgreI_filtered, aes(x = immobil)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Immobil", 
+       x = "Immobil", 
+       y = "Frequency") +
+  theme_minimal()
+
+```
+
+# Dataset preperation
+```{r, echo=FALSE, out.width='80%', out.height='80%'}
+# New chunk: Create variable 'W'
+merged_data <- merged_data %>%
+  mutate(W = ifelse(NB_velo == 0 & NB_2Rm == 0 & dispovp == 0 & ABO_TC == 3 & abonpeage == 0 & LIEU_STAT == 0, 0, 1))
+
+# Check the distribution of 'W' with detailed output
+# cat("Distribution of W:\n")
+#print(table(merged_data$W))
+
+# Plot the distribution of 'W'
+ggplot(merged_data, aes(x = as.factor(W))) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of W",
+       x = "W Value",
+       y = "Frequency") +
+  theme_minimal()
+
+```
+```{r, include=FALSE}
+# Merge 'W' into allgreI_filtered using 'id_pers'
+allgreI_filtered <- allgreI_filtered %>%
+  left_join(merged_data %>% select(id_pers, W), by = "id_pers")
+
+# Verify that 'W' was correctly added
+str(allgreI_filtered)
+
+# Save the updated dataset with 'W' included
+save(allgreI_filtered, file = "allgreI_with_W.RData")
+
+# Optional: View the first few rows to check
+head(allgreI_filtered)
+
+```
+
+
+
+```{r, include=FALSE}
+# Check for any rows where dispovp > 0 but W is not 1
+invalid_cases <- allgreI_filtered %>%
+  filter(dispovp > 0 & W != 1)
+
+# Display the number of violations
+cat("Number of cases where dispovp > 0 and W is not 1:", nrow(invalid_cases), "\n")
+
+# If any invalid cases exist, display them
+if(nrow(invalid_cases) > 0) {
+  print(invalid_cases)
+} else {
+  cat("Validation passed: W is always 1 when dispovp > 0.\n")
+}
+
+```
+
+```{r, include=FALSE}
+selected_vars <- c("immobil")
+# Selectie van de variabelen uit de gejoinede dataset
+filtered_data <- merged_data %>% select(all_of(selected_vars))
+
+# Bekijk de algemene samenvatting van de geselecteerde variabelen
+#skim(filtered_data)
+
+# Distributie van elke variabele + aantal ontbrekende waarden visualiseren
+for (var in selected_vars) {
+  print(ggplot(filtered_data, aes_string(x = var)) +
+          geom_bar(na.rm = TRUE, fill = "steelblue") +
+          ggtitle(paste("Distributie van", var)) +
+          theme_minimal())
+  
+  # Aantal missende waarden tonen
+  missing_count <- sum(is.na(filtered_data[[var]]))
+  total_count <- nrow(filtered_data)
+  cat(paste("Variabele:", var, "\nOntbrekende waarden:", missing_count, 
+            "\nPercentage ontbrekend:", round((missing_count / total_count) * 100, 2), "%\n\n"))
+}
+```
+
+```{r, include=FALSE}
+# Combineer alle mutaties in één blok
+merged_data <- merged_data %>%
+  mutate(
+    # Vervang NA door 0
+    PBM_STAT = replace_na(PBM_STAT, 0),
+    STAT_TRAV = replace_na(STAT_TRAV, 0),
+    
+    # Zet de geselecteerde variabelen om naar factor (categorisch)
+    TYPE_HAB = as.factor(TYPE_HAB),
+    zoneres.x = as.factor(zoneres.x),
+    OCCU1 = as.factor(OCCU1),
+    travdom = as.factor(travdom),
+    nb_pers = as.factor(nb_pers),
+    
+    # Creëer de binaire variabele 'parking_diff'
+    parking_diff = ifelse(PBM_STAT == 1 | STAT_TRAV == 1, 1, 0)
+  ) %>%
+  select(-PBM_STAT, -STAT_TRAV)  # Verwijder PBM_STAT en STAT_TRAV
+
+# Voeg de aangepaste variabelen toe aan allgreI_filtered via left_join
+allgreI_filtered <- allgreI_filtered %>%
+  left_join(merged_data %>% select(id_pers, TYPE_HAB, zoneres.x, OCCU1, travdom, nb_pers, parking_diff),
+            by = "id_pers")
+
+# Controleer of de variabelen correct zijn toegevoegd
+str(allgreI_filtered)
+
+# Opslaan van de geüpdatete dataset
+save(allgreI_filtered, file = "allgreI_with_new_vars.RData")
+
+# Bekijk een overzicht van de eerste paar rijen
+head(allgreI_filtered)
+
+```
+
+```{r, include=FALSE}
+library(dplyr)
+
+# 1. Vind alle kolommen die eindigen op .x of .y
+suffix_columns <- names(allgreI_filtered)[grepl("\\.x$|\\.y$", names(allgreI_filtered))]
+
+# 2. Loop door alle suffix kolommen en verwerk ze
+for (col in suffix_columns) {
+  # Haal de originele kolomnaam zonder suffix
+  base_col <- gsub("\\.x$|\\.y$", "", col)
+  
+  # Controleer of de kolom zonder suffix al bestaat
+  if (base_col %in% names(allgreI_filtered)) {
+    # Vergelijk de kolommen
+    if (identical(allgreI_filtered[[col]], allgreI_filtered[[base_col]])) {
+      # Als ze identiek zijn, verwijder de .x/.y kolom
+      allgreI_filtered <- allgreI_filtered %>%
+        select(-all_of(col))
+      cat("", col, "is identiek aan", base_col, "en is verwijderd.\n")
+    } else {
+      cat("️", col, "verschilt van", base_col, ". Handmatige controle vereist.\n")
+    }
+  } else {
+    # Als de basisversie niet bestaat, hernoem de kolom zonder suffix
+    allgreI_filtered <- allgreI_filtered %>%
+      rename(!!base_col := all_of(col))
+    cat("", col, "is hernoemd naar", base_col, ".\n")
+  }
+}
+
+# 3. Verwijder PBM_STAT en STAT_TRAV als ze nog bestaan
+allgreI_filtered <- allgreI_filtered %>%
+  select(-any_of(c("PBM_STAT", "STAT_TRAV")))
+
+cat("️  PBM_STAT en STAT_TRAV zijn verwijderd.\n")
+
+# 4. Controleer of er nog kolommen met .x of .y zijn
+remaining_suffixes <- names(allgreI_filtered)[grepl("\\.x$|\\.y$", names(allgreI_filtered))]
+
+if (length(remaining_suffixes) == 0) {
+  cat(" Alle kolommen met .x en .y zijn succesvol verwijderd of hernoemd!\n")
+} else {
+  cat("Er zijn nog kolommen met .x of .y:\n")
+  print(remaining_suffixes)
+}
+
+# 5. Controleer de structuur van de opgeschoonde dataset
+str(allgreI_filtered)
+
+```
+
+
+```{r, include=FALSE}
+# Zet W en parking_diff om naar binaire factorvariabelen met labels "No" en "Yes"
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    W = factor(W, levels = c(0, 1), labels = c("No", "Yes")),
+    parking_diff = factor(parking_diff, levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+# Controleer of de omzetting correct is uitgevoerd
+```
+
+
+```{r, include=FALSE}
+str(allgreI_filtered)
+```
+```{r, include=FALSE}
+library(ggplot2)
+library(dplyr)
+
+# 1. Splits categorische en numerieke variabelen
+cat_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.factor)]
+num_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.numeric)]
+
+# 2. Distributies van categorische variabelen
+cat("Distributie van categorische variabelen:\n")
+for (var in cat_vars) {
+  cat("", var, "\n")
+  
+  # Frequentietabel printen
+  print(table(allgreI_filtered[[var]], useNA = "ifany"))
+  
+  # Staafdiagram maken
+  plot <- ggplot(allgreI_filtered, aes_string(x = var)) +
+    geom_bar(fill = "steelblue", na.rm = TRUE) +
+    labs(title = paste("Distributie van", var), x = var, y = "Frequentie") +
+    theme_minimal()
+  
+  print(plot)
+}
+
+# 3. Distributies van numerieke variabelen
+cat("\n Distributie van numerieke variabelen:\n")
+for (var in num_vars) {
+  cat("", var, "\n")
+  
+  # Samenvatting printen
+  print(summary(allgreI_filtered[[var]]))
+  
+  # Histogram maken
+  plot <- ggplot(allgreI_filtered, aes_string(x = var)) +
+    geom_histogram(binwidth = 1, fill = "steelblue", color = "black", na.rm = TRUE) +
+    labs(title = paste("Distributie van", var), x = var, y = "Frequentie") +
+    theme_minimal()
+  
+  print(plot)
+}
+
+```
+```{r, include=FALSE}
+library(dplyr)
+library(ggplot2)
+
+# TYPE_HAB correct groeperen met grondige schoonmaak
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    TYPE_HAB = case_when(
+      TYPE_HAB %in% c("1", "2") ~ "Groep 1",      # Groep 1: 1 of 2
+      TYPE_HAB %in% c("3", "4", "5") ~ "Groep 2",   # Groep 2: 3, 4, 5                 # Overige waarden worden NA
+    ),
+    TYPE_HAB = factor(TYPE_HAB, levels = c("Groep 1", "Groep 2"))
+  )
+
+
+# 2 OCCU1 correct groeperen
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    OCCU1 = case_when(
+      OCCU1 %in% c("3", "4", "5") ~ "3-5",  # Waarden 3, 4, 5 samengevoegd
+      TRUE ~ as.character(OCCU1)
+    ),
+    OCCU1 = factor(OCCU1)
+  )
+
+# 3 Nieuwe variabele 'retrait' toevoegen
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    retrait = ifelse(OCCU1 == "7", "Yes", "No"),
+    retrait = factor(retrait, levels = c("No", "Yes"))
+  )
+
+# 2 nb_pers correct groeperen
+allgreI_filtered <- allgreI_filtered %>%
+  mutate(
+    nb_pers = as.numeric(as.character(nb_pers)),  # Zet om naar numeriek
+    nb_pers = case_when(
+      nb_pers %in% c(1, 2) ~ as.character(nb_pers),
+      nb_pers %in% c(3, 4) ~ "3-4",  # Groep 3-4
+      nb_pers %in% c(5, 6, 7, 8) ~ "5-8",  # Groep 5-8
+      TRUE ~ NA_character_
+    ),
+    nb_pers = factor(nb_pers, levels = c("1", "2", "3-4", "5-8"))
+  )
+
+#  Controleer de aangepaste dataset
+str(allgreI_filtered)
+
+#  Bekijk de verdeling van de nieuwe groepen
+cat("Verdeling van TYPE_HAB:\n")
+print(table(allgreI_filtered$TYPE_HAB, useNA = "ifany"))
+
+cat("Verdeling van OCCU1:\n")
+print(table(allgreI_filtered$OCCU1, useNA = "ifany"))
+
+cat("Verdeling van retrait:\n")
+print(table(allgreI_filtered$retrait, useNA = "ifany"))
+
+cat("Verdeling van nb_pers:\n")
+print(table(allgreI_filtered$nb_pers, useNA = "ifany"))
+
+# 5 Visualisatie van de distributies van alle variabelen
+cat_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.factor)]
+num_vars <- names(allgreI_filtered)[sapply(allgreI_filtered, is.numeric)]
+
+# Visualisatie voor categorische variabelen
+for (var in cat_vars) {
+  cat(" Distributie van", var, ":\n")
+  
+  # Frequentietabel printen
+  print(table(allgreI_filtered[[var]], useNA = "ifany"))
+  
+  # Staafdiagram maken
+  plot <- ggplot(allgreI_filtered, aes_string(x = var)) +
+    geom_bar(fill = "steelblue", na.rm = TRUE) +
+    labs(title = paste("Distributie van", var), x = var, y = "Frequentie") +
+    theme_minimal()
+  
+  print(plot)
+}
+
+# Visualisatie voor numerieke variabelen
+for (var in num_vars) {
+  cat(" Distributie van", var, ":\n")
+  
+  # Samenvatting printen
+  print(summary(allgreI_filtered[[var]]))
+  
+  # Histogram maken
+  plot <- ggplot(allgreI_filtered, aes_string(x = var)) +
+    geom_histogram(binwidth = 1, fill = "steelblue", color = "black", na.rm = TRUE) +
+    labs(title = paste("Distributie van", var), x = var, y = "Frequentie") +
+    theme_minimal()
+  
+  print(plot)
+}
+
+```
+
+
+# Variables in our Dataset 
+\tiny
+```{r, echo=FALSE}
+# 1 Nieuwe variabele 'tirgroup' aanmaken
+allgreI <- allgreI %>%
+  mutate(tirgroup = case_when(
+    tir >= 101 & tir <= 114 ~ "Grenoble",
+    tir >= 115 & tir <= 143 ~ "Urban around Grenoble",
+    tir >= 201 & tir <= 205 ~ "Bièvre",
+    tir >= 301 & tir <= 314 ~ "Grésivaudan",
+    tir >= 401 & tir <= 403 ~ "Sud Grenoble",
+    tir >= 501 & tir <= 519 ~ "Voiron",
+    tir >= 601 & tir <= 603 ~ "Sud de Voiron",
+    tir >= 701 & tir <= 903 ~ "Montagnes",
+    TRUE ~ "Overig"
+  ))
+
+# 2 Nieuwe variabele 'fullygrouped' aanmaken
+allgreI <- allgreI %>%
+  mutate(fullygrouped = case_when(
+    tirgroup %in% c("Grenoble", "Voiron") ~ "City",
+    tirgroup == "Montagnes" ~ "Montagnes",
+    TRUE ~ "Rural"
+  ))
+
+# Zet 'tirgroup' en 'fullygrouped' om in factors voor consistentie
+allgreI <- allgreI %>%
+  mutate(
+    tirgroup = factor(tirgroup, levels = c("Grenoble", "Urban around Grenoble", "Bièvre", 
+                                            "Grésivaudan", "Sud Grenoble", "Voiron", 
+                                            "Sud de Voiron", "Montagnes", "Overig")),
+    fullygrouped = factor(fullygrouped, levels = c("City", "Montagnes", "Rural"))
+  )
+
+# 3 Voeg 'fullygrouped' toe aan allgreI_filtered via een left_join
+allgreI_filtered <- allgreI_filtered %>%
+  left_join(allgreI %>% select(id_pers, fullygrouped), by = "id_pers")
+
+# 4 Controleer of 'fullygrouped' correct is toegevoegd
+str(allgreI_filtered)
+#table(allgreI_filtered$fullygrouped, useNA = "ifany")
+
+# 5️ Opslaan van de geüpdatete dataset met 'fullygrouped'
+save(allgreI_filtered, file = "allgreI_with_fullygrouped.RData")
+
+
+```
+
+
+
+
+
+
+
+```{r, include=FALSE}
+# Save the transformed dataset to an RData file
+save(allgreI_filtered, file = "allgreI_filtered.RData")
+```
+
+
+```{r, include=FALSE}
+# Save the transformed dataset to an RData file
+save(allgreI_filtered, file = "allgreI_clustering.RData")
+```
+
