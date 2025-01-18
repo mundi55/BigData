@@ -19,10 +19,10 @@ library(caret)
 
 
 # Load the necessary dataset
-load("C:/SAProject/Files_OK_SABD_Prject/allgreI.RData") 
-load("C:/SAProject/Files_OK_SABD_Prject/allgreM.RData")
-load("C:/SAProject/Files_OK_SABD_Prject/allgreD.RData")
-load("C:/SAProject/Files_OK_SABD_Prject/allgreI_with_fullygrouped.RData")
+load("allgreI.RData") 
+load("allgreM.RData")
+load("allgreD.RData")
+load("allgreI_with_fullygrouped.RData")
 ```
 
 ```{r}

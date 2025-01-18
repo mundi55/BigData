@@ -19,24 +19,14 @@ library(caret)
 
 
 # Load the necessary dataset
-load("C:/SAProject/Files_OK_SABD_Prject/allgreI.RData") 
-#load("C:/SAProject/Files_OK_SABD_Prject/allgreM.RData")
-#load("C:/SAProject/Files_OK_SABD_Prject/allgreD.RData")
-#mein_datensatz <- load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_filtered.RData")
+load("allgreI.RData") 
 # Lade die Datei und speichere das Objekt unter einem neuen Namen
-mein_datensatz <- get(load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_filtered.RData"))
 
-load("C:/SAProject/Files_OK_SABD_Prject/BigData/allgreI_with_W.RData")
+load("allgreI_with_W.RData")
 
 # Merge allgreI_filtered mit der Spalte age aus allgreI
 # Erstelle eine Kopie des Datensatzes
 allgreI_filtered_copy <- allgreI_filtered
-
-# Führe die gewünschte Manipulation nur auf der Kopie durch
-allgreI_filtered_copy <- merge(allgreI_filtered_copy, 
-                               allgreI[, c("id_pers", "age")], 
-                               by = "id_pers", 
-                               all.x = TRUE)
 
 # Verwende ab hier die Kopie `allgreI_filtered_copy` für weitere Analysen
 
