@@ -75,7 +75,7 @@ allgreI_filtered <- allgreI_filtered %>%
   mutate(
     age_group = cut(
       age, 
-      breaks = c(0, 20, 60, Inf),  # Breakpoints for age groups
+      breaks = c(0, 5, 76, Inf),  # Breakpoints for age groups
       labels = c("0-20", "20-60", "60+"),
       right = FALSE  # Exclude the upper limit
     )
@@ -599,4 +599,99 @@ save(allgreI_filtered, file = "allgreI_filtered.RData")
 # Save the transformed dataset to an RData file
 save(allgreI_filtered, file = "allgreI_clustering.RData")
 ```
+
+```{r}
+# Combineer relevante kolommen uit both datasets
+data_togroup <- merged_data %>%
+  select(id_pers, sexe, dispovp, W, TYPE_HAB, OCCU1, tir, nb_pers, csp, travdom) %>%
+  left_join(
+    allgreI_filtered %>% select(id_pers, immobil, age, has_car, parking_diff), 
+    by = "id_pers"
+  )
+
+# Controleer de structuur van de nieuwe dataset
+str(data_togroup)
+
+# Controleer een voorbeeld van de nieuwe dataset
+head(data_togroup)
+
+# Opslaan van de nieuwe dataset
+save(data_togroup, file = "data_togroup.RData")
+
+```
+```{r}
+# Zorg ervoor dat de volgende variabelen categorisch zijn
+data_togroup <- data_togroup %>%
+  mutate(
+    sexe = as.factor(sexe),
+    W = as.factor(W),
+    TYPE_HAB = as.factor(TYPE_HAB),
+    tir = as.factor(tir),
+    csp = as.factor(csp),
+    age = as.factor(age)
+  )
+
+# Controleer of de omzetting correct is uitgevoerd
+str(data_togroup)
+
+# Opslaan van de bijgewerkte dataset
+save(data_togroup, file = "data_togroup.RData")
+
+```
+
+```{r}
+# Haal de variabelen age, csp en OCCU1 uit data_togroup en groepeer ze zoals vermeld
+allgreI_filtered <- allgreI_filtered %>%
+  left_join(
+    data_togroup %>%
+      select(id_pers, age, csp, OCCU1) %>%
+      mutate(
+        # Zorg dat age, csp en OCCU1 als categorisch worden behandeld
+        age = as.numeric(as.character(age)),
+        csp = as.numeric(as.character(csp)),
+        OCCU1 = as.numeric(as.character(OCCU1)),
+
+        # Groepeer age in 0-5, 5-76, 76+
+        age_grouped = cut(
+          age,
+          breaks = c(0, 5, 76, Inf),
+          labels = c("0-5", "5-76", "76+"),
+          right = FALSE
+        ),
+        
+        # Groepeer csp in twee groepen
+        csp_grouped = case_when(
+          csp %in% c(10:47, 51, 55, 61, 69) ~ "Groep 1",
+          TRUE ~ "Groep 2"
+        ),
+        
+        # Groepeer OCCU1 in drie groepen
+        OCCU1_grouped = case_when(
+          OCCU1 %in% c(6, 7, 9) ~ "Groep 1",
+          OCCU1 %in% c(1, 8) ~ "Groep 2",
+          TRUE ~ "Groep 3"
+        )
+      ) %>%
+      select(id_pers, age_grouped, csp_grouped, OCCU1_grouped),
+    by = "id_pers"
+  )
+# Controleer de structuur van de dataset om de nieuwe variabelen te valideren
+str(allgreI_filtered)
+
+# Opslaan van de bijgewerkte dataset
+save(allgreI_filtered, file = "allgreI_filtered.RData")
+
+```
+```{r}
+# Nieuwe chunk: Verwijder specifieke variabelen uit allgreI_filtered
+allgreI_filtered <- allgreI_filtered %>%
+  select(-age_group, -cspgroup, -OCCU1, nb_pers)
+
+# Controleer de structuur van de dataset om de nieuwe variabelen te valideren
+str(allgreI_filtered)
+
+# Opslaan van de bijgewerkte dataset
+save(allgreI_filtered, file = "allgreI_filtered.RData")
+```
+
 
