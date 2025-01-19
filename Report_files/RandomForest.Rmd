@@ -4,11 +4,11 @@ output: html_document
 date: "2025-01-14"
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup-randomForest, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r cars}
+```{r, include=FALSE}
 
 library(skimr)
 library(dplyr)
@@ -53,7 +53,8 @@ dim(allgreI_filtered_copy_clean_test)  # Zeigt die Dimensionen der Testdaten
 class(allgreI_filtered_copy_clean_test$immobil)
 class(allgreI_filtered_copy_clean_train$immobil)
 ```
-```{r}
+
+```{r, include=FALSE}
 
 # Random Forest trainieren
 set.seed(123)  # Für Reproduzierbarkeit
@@ -66,16 +67,25 @@ rf_model <- randomForest(immobil ~ age + dispovp + W,
 # Ausgabe des Modells anzeigen
 print(rf_model)
 
+```
 
+\tiny
+```{r, include=FALSE}
 # Variable Importance (Wichtigkeit der Variablen)
 importance(rf_model)
+```
 
-
+```{r, echo=FALSE, fig.width=4, fig.height=3}
 plot(rf_model)
+```
 
+\tiny
+```{r, echo=FALSE,fig.width=4, fig.height=3}
 varImpPlot(rf_model, type = 1)
 ```
-```{r}
+
+
+```{r, include=FALSE}
 # Vorhersagen auf dem Test-Datensatz
 rf_predictions <- predict(rf_model, newdata = allgreI_filtered_copy_clean_test)
 

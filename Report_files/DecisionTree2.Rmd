@@ -1,14 +1,31 @@
 ---
 title: "Mobility_behaviour_Decision_Tree_4th_Try"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2025-01-14"
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup_decisiontree2, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE, include = TRUE)
+
+#print("Setup wird ausgeführt.")
+
+# Überprüfen, ob die Variable 'target_child' existiert
+#if (!exists("target_child")) {
+#  print("Die Datei wird eigenständig ausgeführt.")
+#  knitr::opts_chunk$set(echo = TRUE, include = TRUE)
+#} else {
+#  print("Die Datei wird eingebunden.")
+#  knitr::opts_chunk$set(echo = FALSE, include = FALSE)
+#}
+
+# Ausgabe der aktuellen Chunk-Optionen
+#print("Aktuelle Einstellungen für echo: ", knitr::opts_chunk$get("echo"))
+#message("Aktuelle Einstellungen für include: ", knitr::opts_chunk$get("include"))
 ```
 
-```{r cars}
+```{r cars, include=FALSE}
 
 library(skimr)
 library(dplyr)
@@ -43,7 +60,7 @@ class(allgreI_filtered_test$immobil)
 class(allgreI_filtered_train$immobil)
 ```
 
-```{r}
+```{r test, include=FALSE}
 model_tree10 <- rpart(
   immobil ~ age_group + dispovp + W,  # Drei erklärende Variablen
   data = allgreI_filtered_train,      # Trainingsdatensatz

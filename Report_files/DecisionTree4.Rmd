@@ -4,11 +4,10 @@ output: html_document
 date: "2025-01-14"
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup-decisiontree4, include=FALSE}
 ```
 
-```{r cars}
+```{r, include=FALSE}
 
 library(skimr)
 library(dplyr)
@@ -61,7 +60,7 @@ is.factor(allgreI_filtered_copy$OCCU1)
 
 ```
 
-```{r}
+```{r, include=FALSE}
 model_tree10 <- rpart(
   immobil ~ has_car + OCCU1 + W,  # Drei erklärende Variablen
   data = allgreI_filtered_copy_train,      # Trainingsdatensatz
