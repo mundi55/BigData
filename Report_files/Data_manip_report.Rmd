@@ -7,7 +7,7 @@ header-includes:
 - \setbeamerfont{verbatim}{size=\tiny}
 ---
 
-```{r setup, include=FALSE}
+```{r, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -200,7 +200,7 @@ print(missing_summary_updated)
 ```
 
 
-```{r, echo=FALSE, out.width='30%', out.height='30%'}
+```{r, include=FALSE}
 # Load necessary library
 library(ggplot2)
 
@@ -214,7 +214,7 @@ ggplot(allgreI_filtered, aes(x = immobil)) +
 
 ```
 
-```{r, echo=FALSE, out.width='30%', out.height='30%'}
+```{r, include=FALSE}
 # New chunk: Create variable 'W'
 merged_data <- merged_data %>%
   mutate(W = ifelse(NB_velo == 0 & NB_2Rm == 0 & dispovp == 0 & ABO_TC == 3 & abonpeage == 0 & LIEU_STAT == 0, 0, 1))
@@ -537,7 +537,7 @@ for (var in num_vars) {
 
 
 \tiny
-```{r, echo=FALSE}
+```{r, include=FALSE}
 # 1 Nieuwe variabele 'tirgroup' aanmaken
 allgreI <- allgreI %>%
   mutate(tirgroup = case_when(
@@ -600,7 +600,7 @@ save(allgreI_filtered, file = "allgreI_filtered.RData")
 save(allgreI_filtered, file = "allgreI_clustering.RData")
 ```
 
-```{r}
+```{r, include=FALSE}
 # Combineer relevante kolommen uit both datasets
 data_togroup <- merged_data %>%
   select(id_pers, sexe, dispovp, W, TYPE_HAB, OCCU1, tir, nb_pers, csp, travdom) %>%
@@ -619,7 +619,7 @@ head(data_togroup)
 save(data_togroup, file = "data_togroup.RData")
 
 ```
-```{r}
+```{r, include=FALSE}
 # Zorg ervoor dat de volgende variabelen categorisch zijn
 data_togroup <- data_togroup %>%
   mutate(
@@ -628,7 +628,6 @@ data_togroup <- data_togroup %>%
     TYPE_HAB = as.factor(TYPE_HAB),
     tir = as.factor(tir),
     csp = as.factor(csp),
-    age = as.factor(age)
   )
 
 # Controleer of de omzetting correct is uitgevoerd
@@ -639,53 +638,54 @@ save(data_togroup, file = "data_togroup.RData")
 
 ```
 
-```{r}
+```{r, include=FALSE}
 # Haal de variabelen age, csp en OCCU1 uit data_togroup en groepeer ze zoals vermeld
 allgreI_filtered <- allgreI_filtered %>%
   left_join(
     data_togroup %>%
       select(id_pers, age, csp, OCCU1) %>%
       mutate(
-        # Zorg dat age, csp en OCCU1 als categorisch worden behandeld
+        # Zorg dat age, csp en OCCU1 als numeriek worden behandeld
         age = as.numeric(as.character(age)),
         csp = as.numeric(as.character(csp)),
         OCCU1 = as.numeric(as.character(OCCU1)),
 
         # Groepeer age in 0-5, 5-76, 76+
-        age_grouped = cut(
+        age_grouped = factor(cut(
           age,
           breaks = c(0, 5, 76, Inf),
           labels = c("0-5", "5-76", "76+"),
           right = FALSE
-        ),
-        
+        )),
+
         # Groepeer csp in twee groepen
-        csp_grouped = case_when(
+        csp_grouped = factor(case_when(
           csp %in% c(10:47, 51, 55, 61, 69) ~ "Groep 1",
           TRUE ~ "Groep 2"
-        ),
-        
+        )),
+
         # Groepeer OCCU1 in drie groepen
-        OCCU1_grouped = case_when(
+        OCCU1_grouped = factor(case_when(
           OCCU1 %in% c(6, 7, 9) ~ "Groep 1",
           OCCU1 %in% c(1, 8) ~ "Groep 2",
           TRUE ~ "Groep 3"
-        )
+        ))
       ) %>%
       select(id_pers, age_grouped, csp_grouped, OCCU1_grouped),
     by = "id_pers"
   )
-# Controleer de structuur van de dataset om de nieuwe variabelen te valideren
+
+# Controleer de structuur van de dataset om te valideren dat de variabelen nu factors zijn
 str(allgreI_filtered)
 
 # Opslaan van de bijgewerkte dataset
 save(allgreI_filtered, file = "allgreI_filtered.RData")
 
 ```
-```{r}
+```{r, echo = FALSE}
 # Nieuwe chunk: Verwijder specifieke variabelen uit allgreI_filtered
 allgreI_filtered <- allgreI_filtered %>%
-  select(-age_group, -cspgroup, -OCCU1, nb_pers)
+  select(-age_group, -cspgroup, -OCCU1, -nb_pers)
 
 # Controleer de structuur van de dataset om de nieuwe variabelen te valideren
 str(allgreI_filtered)
@@ -693,5 +693,6 @@ str(allgreI_filtered)
 # Opslaan van de bijgewerkte dataset
 save(allgreI_filtered, file = "allgreI_filtered.RData")
 ```
+
 
 

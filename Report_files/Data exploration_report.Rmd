@@ -9,15 +9,150 @@ header-includes:
 
 ```{r, include=FALSE}
 load("allgreI_filtered.RData")
+load("allgreI.RData")
 ```
 
 
 
 
+```{r, echo=FALSE}
+# Load necessary libraries
+library(ggplot2)
+library(patchwork)
+
+# Plot 1: Distribution of the 'immobil' variable
+plot_immobil <- ggplot(allgreI_filtered, aes(x = immobil)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Immobil", 
+       x = "Immobil", 
+       y = "Frequency") +
+  theme_minimal()
+
+# Plot 2: Distribution of the 'W' variable
+plot_W <- ggplot(merged_data, aes(x = as.factor(W))) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of W",
+       x = "W Value",
+       y = "Frequency") +
+  theme_minimal()
+
+# Plot 3: Immobile people with W = 1
+plot_W1_immobil <- allgreI_filtered %>%
+  filter(W == "No") %>%
+  count(immobil) %>%
+  ggplot(aes(x = immobil, y = n)) +
+  geom_bar(stat = "identity", fill = "darkorange") +
+  labs(title = "Immobile with W = 0", 
+       x = "Immobil", 
+       y = "Count") +
+  theme_minimal()
+
+# Combine all three plots side by side
+combined_plot <- plot_immobil + plot_W + plot_W1_immobil + plot_layout(ncol = 3)
+
+# Print the combined plot
+print(combined_plot)
+
+```
+
+```{r, include=FALSE, echo=FALSE}
+# Controleer de distributie van immobiliteit per leeftijd
+age_immobil_distribution <- allgreI_filtered %>%
+  group_by(age) %>%
+  summarise(
+    Total = n(),
+    Immobile = sum(immobil == "Yes"),
+    Proportion_Immobile = Immobile / Total
+  )
+
+
+
+# Visualiseer de proportie immobiele mensen per leeftijd
+ggplot(age_immobil_distribution, aes(x = age, y = Proportion_Immobile)) +
+  geom_line(color = "red") +
+  geom_point(color = "red") +
+  labs(title = "Proportion immobile per age",
+       x = "Age",
+       y = "Proportion immobile") +
+  theme_minimal()
+
+```
+
+```{r, include=FALSE}
+# Controleer de distributie van immobiliteit per dispovp
+dispovp_immobil_distribution <- allgreI_filtered %>%
+  group_by(dispovp) %>%
+  summarise(
+    Total = n(),
+    Immobile = sum(immobil == "Yes"),
+    Proportion_Immobile = Immobile / Total
+  )
+
+# Visualiseer de proportie immobiele mensen per dispovp
+ggplot(dispovp_immobil_distribution, aes(x = dispovp, y = Proportion_Immobile)) +
+  geom_line(color = "red") +
+  geom_point(color = "red") +
+  labs(title = "Proportion immobile people per number of cars",
+       x = "Number of cars",
+       y = "Proportion immobile") +
+  theme_minimal()
+
+```
+```{r, include=FALSE, results='hide', message=FALSE, warning=FALSE}
+# Laad de benodigde pakketten
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+# Controleer de distributie van immobiliteit per leeftijd
+age_immobil_distribution <- allgreI_filtered %>%
+  group_by(age) %>%
+  summarise(
+    Total = n(),
+    Immobile = sum(immobil == "Yes"),
+    Proportion_Immobile = Immobile / Total
+  )
+
+# Controleer de distributie van immobiliteit per dispovp
+dispovp_immobil_distribution <- allgreI_filtered %>%
+  group_by(dispovp) %>%
+  summarise(
+    Total = n(),
+    Immobile = sum(immobil == "Yes"),
+    Proportion_Immobile = Immobile / Total
+  )
+
+# Plot 1: Proportie immobiele mensen per leeftijd
+plot_age <- ggplot(age_immobil_distribution, aes(x = age, y = Proportion_Immobile)) +
+  geom_line(color = "red") +
+  geom_point(color = "red") +
+  labs(title = "Immobile People per Age",
+       x = "Age",
+       y = "Proportion Immobile") +
+  theme_minimal()
+
+# Plot 2: Proportie immobiele mensen per dispovp
+plot_dispovp <- ggplot(dispovp_immobil_distribution, aes(x = dispovp, y = Proportion_Immobile)) +
+  geom_line(color = "blue") +
+  geom_point(color = "blue") +
+  labs(title = "Immobile per Number of Cars",
+       x = "Number of Cars",
+       y = "Proportion Immobile") +
+  theme_minimal()
+
+# Combineer de plots horizontaal zonder tabeluitvoer
+combined_plot <- (plot_age + plot_dispovp + plot_layout(ncol = 2)) 
+combined_plot
+```
+The following graphs show that people under the age of 5 and over the age of 75 are more often immobile than people in between these ages. Thus, the grouping decided by the regression tree makes sense. As can be expected, people without a car tend to less mobile.
+```{r, echo = FALSE}
+combined_plot
+```
+
 
 ```{r, include=FALSE}
 # Chi-kwadraat test voor alle categorische variabelen ten opzichte van 'immobil'
-cat_vars <- c("cspgroup", "sexe", "has_car", "age_group", "TYPE_HAB", "parking_diff", "W", "OCCU1", "travdom", "nb_pers", "parking_diff", "retrait", "fullygrouped")
+cat_vars <- c("csp_grouped", "sexe", "has_car", "age_grouped", "TYPE_HAB", "parking_diff", "W", "OCCU1_grouped", "travdom", "parking_diff", "retrait", "fullygrouped")
 
 for (var in cat_vars) {
   cat("\n\nChi-kwadraat test tussen immobil en", var, ":\n")
@@ -43,7 +178,7 @@ for (var in num_vars) {
 library(car)
 
 # Logit model met alle significante variabelen
-logit_model <- glm(immobil ~ cspgroup + sexe + has_car + age_group + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers + fullygrouped + parking_diff,
+logit_model <- glm(immobil ~ csp_grouped + sexe + has_car + age_grouped + TYPE_HAB + parking_diff + W + OCCU1_grouped + travdom + fullygrouped + parking_diff + dispovp,
                    data = allgreI_filtered, family = binomial)
 
 # Bereken de Variance Inflation Factor (VIF)
@@ -125,6 +260,8 @@ ggplot(allgreI, aes(x = fullygrouped)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
 ```
 
+
+
 ```{r, include=FALSE}
 # Analyseer de correlatie tussen fullygrouped en immobil
 # Maak een kruistabel aan om de relatie te bekijken
@@ -165,11 +302,35 @@ ggplot(allgreI, aes(x = tirgroup, fill = factor(immobil))) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
 ```
 
+```{r, include=FALSE}
+#Dummy to prevent Na
 
+# Voeg een dummy-observatie toe om ontbrekende categorieën te voorkomen
+dummy_row <- data.frame(
+  immobil = factor("No", levels = levels(allgreI_filtered$immobil)),  # Een willekeurige waarde
+  age_grouped = factor("0-5", levels = levels(allgreI_filtered$age_grouped)), # Voeg ontbrekende leeftijdscategorie toe
+  csp_grouped = NA,  # Voeg NA toe voor andere variabelen
+  sexe = NA,
+  has_car = NA,
+  TYPE_HAB = NA,
+  parking_diff = NA,
+  W = NA,
+  OCCU1_grouped = NA,
+  travdom = NA,
+  nb_pers = NA,
+  retrait = NA,
+  fullygrouped = NA
+)
+
+# Voeg de dummy-rij toe aan de dataset
+allgreI_filtered <- bind_rows(allgreI_filtered, dummy_row)
+
+```
+The following table shows the correlation between the chosen variables and the immobil variable. All variables, except for the sort of living area variable are significant. As expected from the literature, possesion of a car or a mean of travel is the most significant. The age is also very significant.
 \tiny
 ```{r, echo=FALSE}
 # Verzamel resultaten van Chi-kwadraat test voor categorische variabelen
-cat_vars <- c("cspgroup", "sexe", "has_car", "age_group", "TYPE_HAB", "parking_diff", "W", "OCCU1", "travdom", "nb_pers", "parking_diff", "retrait", "fullygrouped")
+cat_vars <- c("csp_grouped", "sexe", "has_car", "age_grouped", "TYPE_HAB", "parking_diff", "W", "OCCU1_grouped", "travdom", "parking_diff", "retrait", "fullygrouped")
 
 # Initialiseer een lege dataframe voor Chi-kwadraat resultaten
 chi_sq_results <- data.frame(Variabel = character(),
@@ -177,6 +338,7 @@ chi_sq_results <- data.frame(Variabel = character(),
                              P_value = numeric(), 
                              Significant = character(),
                              stringsAsFactors = FALSE)
+
 
 for (var in cat_vars) {
   tbl <- table(allgreI_filtered$immobil, allgreI_filtered[[var]])
@@ -198,6 +360,7 @@ t_test_results <- data.frame(Variabel = character(),
                              Significant = character(),
                              stringsAsFactors = FALSE)
 
+
 for (var in num_vars) {
   t_test_result <- t.test(allgreI_filtered[[var]] ~ allgreI_filtered$immobil)
   significant <- ifelse(t_test_result$p.value < 0.05, "Yes", "No")
@@ -214,7 +377,8 @@ test_results <- rbind(chi_sq_results, t_test_results)
 print(test_results)
 
 ```
-```{r, echo=FALSE}
+
+```{r, include=FALSE}
 print(vif_values)
 ```
 

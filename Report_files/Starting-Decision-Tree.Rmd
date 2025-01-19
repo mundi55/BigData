@@ -8,7 +8,7 @@ date: "2025-01-16"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r cars}
+```{r cars, include=FALSE}
 
 library(skimr)
 library(dplyr)
@@ -19,45 +19,52 @@ library(caret)
 
 
 # Load the necessary dataset
-load("allgreI.RData") 
-load("allgreM.RData")
-load("allgreD.RData")
-load("allgreI_with_fullygrouped.RData")
+load("data_togroup.RData")
+
 ```
 
-```{r}
+```{r, include=FALSE}
 # Merge allgreI_filtered mit der Spalte age aus allgreI
 # Erstelle eine Kopie des Datensatzes
-allgreI_filtered_copy <- allgreI_filtered
 
 # Verwende ab hier die Kopie `allgreI_filtered_copy` für weitere Analysen
 
 
 
-# Zufällige Teilung von allgreI in Trainings- und Testdaten (70%-30%)
-set.seed(123) # Für Reproduzierbarkeit
+# Splits de data_togroup dataset in training en test (70%-30%)
+set.seed(123) # Voor reproduceerbaarheid
 
-# Erzeuge zufällige Indizes für die Trainingsdaten von allgreI
-train_indices <- sample(1:nrow(allgreI), size = 0.7 * nrow(allgreI))
+train_indices <- sample(1:nrow(data_togroup), size = 0.7 * nrow(data_togroup))
 
-# Teile allgreI auf
-allgreI_filtered_copy_train <- allgreI_filtered_copy[train_indices, ]
-allgreI_filtered_copy_test <- allgreI_filtered_copy[-train_indices, ]
+data_togroup_train <- data_togroup[train_indices, ]
+data_togroup_test <- data_togroup[-train_indices, ]
 
-# Bestätige die Aufteilung
-dim(allgreI_filtered_copy_train) # Zeigt die Dimensionen der Trainingsdaten
-dim(allgreI_filtered_copy_test)  # Zeigt die Dimensionen der Testdaten
+# Controleer de splitsing
+dim(data_togroup_train)
+dim(data_togroup_test)
 
-class(allgreI_filtered_copy_test$immobil)
-class(allgreI_filtered_copy_train$immobil)
+str(data_togroup_test)
 
-str(allgreI_filtered_copy)
 ```
 
-```{r}
+```{r, echo = FALSE}
+# Bouw de beslissingsboom
 model_treeBaseModel0 <- rpart(
-  immobil ~ cspgroup + sexe + has_car + age_group + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers + fullygrouped,  # Drei erklärende Variablen
-  data = allgreI_filtered_copy_train,      # Trainingsdatensatz
+  immobil ~ csp + sexe + has_car + age + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers,
+  data = data_togroup_train,
+  method = "class"
+)
+
+# Visualisatie van de beslissingsboom
+library(rpart.plot)
+rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
+
+```
+```{r, include=FALSE}
+#Now without age
+model_treeBaseModel0 <- rpart(
+  immobil ~ csp + sexe + has_car + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers,  # Drei erklärende Variablen
+  data = data_togroup_train,      # Trainingsdatensatz
   method = "class"          # Klassifikationsbaum
 )
 
@@ -72,15 +79,15 @@ library(rpart.plot)
 rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
 
 # Vorhersage auf den Testdaten
-pred_treeBaseModel0 <- predict(model_treeBaseModel0, newdata = allgreI_filtered_copy_test, type = "class")
+pred_treeBaseModel0 <- predict(model_treeBaseModel0, newdata = data_togroup_test, type = "class")
 
 # Evaluierung der Modellgüte mit einer Konfusionsmatrix
-conf_matrix_tree <- table(Predicted = pred_treeBaseModel0, Actual = allgreI_filtered_copy_test$immobil)
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel0, Actual = data_togroup_test$immobil)
 conf_matrix_tree
 
 
 #Test
-confusionMatrix(pred_treeBaseModel0, allgreI_filtered_copy_test$immobil)
+confusionMatrix(pred_treeBaseModel0, data_togroup_test$immobil)
 
 # Berechne die Genauigkeit (Accuracy)
 accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
@@ -106,34 +113,34 @@ cat("Recall:", recall, "\n")
 f1_score <- 2 * (precision * recall) / (precision + recall)
 cat("F1-Score:", f1_score, "\n")
 ```
-```{r}
-# same model like before, just age instead of age_group
-model_treeBaseModel1 <- rpart(
-  immobil ~ cspgroup + sexe + has_car + age + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers + fullygrouped,  # Drei erklärende Variablen
-  data = allgreI_filtered_copy_train,      # Trainingsdatensatz
+```{r, include=FALSE}
+#Now without TYPE_HAB
+model_treeBaseModel0 <- rpart(
+  immobil ~ csp + sexe + has_car + parking_diff + W + OCCU1 + travdom + nb_pers,  # Drei erklärende Variablen
+  data = data_togroup_train,      # Trainingsdatensatz
   method = "class"          # Klassifikationsbaum
 )
 
 # Zeige die Struktur des Baumes an
-print(model_treeBaseModel1)
+print(model_treeBaseModel0)
 
 # Zusammenfassung des Entscheidungsbaums
-summary(model_treeBaseModel1)
+summary(model_treeBaseModel0)
 
 # Visualisierung des Entscheidungsbaums
 library(rpart.plot)
-rpart.plot(model_treeBaseModel1, type = 3, extra = 104, fallen.leaves = TRUE)
+rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
 
 # Vorhersage auf den Testdaten
-pred_treeBaseModel1 <- predict(model_treeBaseModel1, newdata = allgreI_filtered_copy_test, type = "class")
+pred_treeBaseModel0 <- predict(model_treeBaseModel0, newdata = data_togroup_test, type = "class")
 
 # Evaluierung der Modellgüte mit einer Konfusionsmatrix
-conf_matrix_tree <- table(Predicted = pred_treeBaseModel1, Actual = allgreI_filtered_copy_test$immobil)
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel0, Actual = data_togroup_test$immobil)
 conf_matrix_tree
 
 
 #Test
-confusionMatrix(pred_treeBaseModel1, allgreI_filtered_copy_test$immobil)
+confusionMatrix(pred_treeBaseModel0, data_togroup_test$immobil)
 
 # Berechne die Genauigkeit (Accuracy)
 accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
@@ -159,48 +166,35 @@ cat("Recall:", recall, "\n")
 f1_score <- 2 * (precision * recall) / (precision + recall)
 cat("F1-Score:", f1_score, "\n")
 ```
-```{r}
-# Entfernen der Beobachtungen mit age < 5
-allgreI_filtered_copy_5yearsOrOlder_train <- allgreI_filtered_copy_train[allgreI_filtered_copy_train$age >= 5, ]
 
-allgreI_filtered_copy_5yearsOrOlder_test <- allgreI_filtered_copy_test[allgreI_filtered_copy_test$age >= 5, ]
-
-
-
-# Optional: Überprüfen, ob die Filterung erfolgreich war
-summary(allgreI_filtered_copy_5yearsOrOlder_train$age)
-
-
-```
-
-```{r}
-# same model like before, so age instead of age_group and only people above 5 years old
-model_treeBaseModel2 <- rpart(
-  immobil ~ cspgroup + sexe + has_car + age + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers + fullygrouped,  # Drei erklärende Variablen
-  data = allgreI_filtered_copy_5yearsOrOlder_train,      # Trainingsdatensatz
+```{r, include=FALSE}
+#now without csp
+model_treeBaseModel0 <- rpart(
+  immobil ~ sexe + has_car + parking_diff + W + OCCU1 + travdom + nb_pers,  # Drei erklärende Variablen
+  data = data_togroup_train,      # Trainingsdatensatz
   method = "class"          # Klassifikationsbaum
 )
 
 # Zeige die Struktur des Baumes an
-print(model_treeBaseModel2)
+print(model_treeBaseModel0)
 
 # Zusammenfassung des Entscheidungsbaums
-summary(model_treeBaseModel2)
+summary(model_treeBaseModel0)
 
 # Visualisierung des Entscheidungsbaums
 library(rpart.plot)
-rpart.plot(model_treeBaseModel2, type = 3, extra = 104, fallen.leaves = TRUE)
+rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
 
 # Vorhersage auf den Testdaten
-pred_treeBaseModel2 <- predict(model_treeBaseModel2, newdata = allgreI_filtered_copy_5yearsOrOlder_test, type = "class")
+pred_treeBaseModel0 <- predict(model_treeBaseModel0, newdata = data_togroup_test, type = "class")
 
 # Evaluierung der Modellgüte mit einer Konfusionsmatrix
-conf_matrix_tree <- table(Predicted = pred_treeBaseModel2, Actual = allgreI_filtered_copy_5yearsOrOlder_test$immobil)
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel0, Actual = data_togroup_test$immobil)
 conf_matrix_tree
 
 
 #Test
-confusionMatrix(pred_treeBaseModel2, allgreI_filtered_copy_5yearsOrOlder_test$immobil)
+confusionMatrix(pred_treeBaseModel0, data_togroup_test$immobil)
 
 # Berechne die Genauigkeit (Accuracy)
 accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
@@ -226,4 +220,5 @@ cat("Recall:", recall, "\n")
 f1_score <- 2 * (precision * recall) / (precision + recall)
 cat("F1-Score:", f1_score, "\n")
 ```
+
 
