@@ -115,15 +115,21 @@ It should be noted that these numbers should be taken with a grain of salt, sinc
 
 
 ## Clustering
+Experiments were made with K-means clustering to see if it could provide us with meaningful groups for individuals based on the variables of interest. Two seperate set of clusters were made with different sets of variables. Clustering 1 used age_group, cspgroup, W, OCCU1, travdom and dispovp. Clustering 2 used age_group, dispovp and W. Categorical variables are converted to numeric since K-means clustering only works for numerical variables. We chose to give missing values the mean of the column and lastly we normalize the numerical variables for better results. Elbow plots and experimentation with different numbers of clusters was used and 3 clusters were chosen as a best fit for this data based on the elbow plots and exploration of cluster evaluations.
 
+<!--```{r child=("Clustering_v2_report.Rmd"), echo=TRUE} 
 
-
+```-->
 
 
 ## Neural network
+A neural network (NN) was utilized to see how well it could predict the mobility status of individuals compared to other models. Three seperate NN´s were made with different numbers of variables utilized. In NN1 only age and dispovp are used as numeric variables. NN2 uses age, dispovp, W, cspgroup, OCCU1 and travdom. NN3 uses age_group, dispovp and W. All of them were trying to predict the value of immobil as a number between 0-1 as immobil was changed to a numeric variable in the training. When predictions are made a threshold of 0,5 is used to determine if the prediction falls into 0 or 1 for immobility. All networks used a structure with 2 nodes and 2 hidden layers, linear.output is set to false as we are dealing with a classification problem, training and test data was split 70/30, a stepmax of 100.000 was used and all networkes were able to converge. 
+NA values were omitted were necessary and one-hot encoding was used for the categorical variables. Further experiments were made by trying to omitt less of NA values by either creating new categories for such variables or setting them to the average value but these experiments did not improve our model. Oversampling was also tested to try to balance the data but it did not seem to improve the model either. The model that uses only age and dispovp had the best performance in our experiments.
 ![](Simple_NN1.png){width=60%}
 
-```
+<!-- ```{r child=("NN_v3_report.Rmd"), echo=TRUE}
+
+```  -->
 
 
 
