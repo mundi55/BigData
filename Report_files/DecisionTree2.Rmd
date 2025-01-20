@@ -25,7 +25,7 @@ date: "2025-01-14"
 #message("Aktuelle Einstellungen für include: ", knitr::opts_chunk$get("include"))
 ```
 
-```{r cars, include=FALSE}
+```{r, include=FALSE}
 
 library(skimr)
 library(dplyr)

@@ -76,7 +76,7 @@ allgreI_filtered <- allgreI_filtered %>%
     age_group = cut(
       age, 
       breaks = c(0, 5, 76, Inf),  # Breakpoints for age groups
-      labels = c("0-20", "20-60", "60+"),
+      labels = c("0-5", "5-76", "76+"),
       right = FALSE  # Exclude the upper limit
     )
   ) #%>%

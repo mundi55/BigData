@@ -100,19 +100,47 @@ It should be noted that these numbers should be taken with a grain of salt, sinc
 
 ## Decision tree
 
-![](Baum3.png){width=50%}
+```{r child=("DecisionTree2.Rmd"), echo=TRUE}
 
+```
 
+We trained Decision Trees using the explanatory variables age, dispovp, and the focus variable W to predict the target variable "immobil." Two trees were built: one using the numerical variable age and the other using the categorized variable age_group, as both showed promising results. These trees produced nearly identical structures because age_group and W were the most relevant variables in earlier models as well.
+
+A third Decision Tree was constructed for comparison, incorporating the variables has_car, OCCU1, and W, which are significant predictors of immobility according to the literature. These variables also performed well in regression models.
+
+When comparing the evaluation metrics of the three trees, the third model lacks defined Recall and F1-Score values, as it classified all observations as "mobile." This outcome results from the imbalanced dataset, where False Negatives are absent. Accuracy, as expected, is high in such cases but misleading. To preserve the dataset's balance, children under 5 were retained despite their marginal contribution to classification.
+
+For the first two models, both Accuracy and F1-Score are consistent, with an F1-Score of 0.59. This consistency arises because the split thresholds for age align closely with the boundaries of age_group. The categorization proved optimal, as indicated by initial tests. Compared to earlier models, these trees offer only marginal improvements but excel in simplicity. On the test data, they perform equally well while being easier to interpret.
 ```{r child=("DecisionTree3-Version2_report.Rmd"), echo=TRUE}
 
 ```
 
+```{r child=("DecisionTree4.Rmd"), echo=TRUE}
+
+```
+
+
 ## Random forest 
-![](Bild2.png){width=50%}
 
-![](Bild1.png){width=50%}
+A Random Forest was trained, and its performance is summarized in two diagrams.
 
+1. Error Curve
+The first diagram illustrates how the model’s error changes with the number of trees.
 
+The overall error (black line) decreases quickly as the first 50–100 trees are added and then stabilizes, indicating that the model combines enough trees to make robust predictions. Adding more trees provides little benefit and does not lead to overfitting, which is a key strength of Random Forests.
+Class-specific errors (red and green lines) reveal that the model performs well for one class (e.g., "mobile") but struggles with the other (e.g., "immobile"). This discrepancy is likely due to class imbalance in the dataset, where the underrepresented class is harder to predict accurately.
+2. Variable Importance
+The second diagram shows the importance of each variable, measured by MeanDecreaseAccuracy, which indicates how much accuracy is lost when a variable is excluded.
+
+Age (age) is the most influential predictor, aligning with its dominance in Decision Trees.
+dispovp and W have smaller impacts, with dispovp gaining importance due to the Random Forest's ability to use diverse subsets of variables.
+Key Insights
+Decision Trees prioritize the most dominant variables (age), often ignoring others like dispovp. Random Forests, however, distribute importance across variables because of random feature selection during splits.
+Random Forests are more robust against overfitting and better leverage variable interactions. However, in imbalanced datasets, their performance on minority classes can suffer compared to Decision Trees, which may focus excessively on the majority class.
+
+```{r child=("RandomForest.Rmd"), echo=TRUE}
+
+```
 
 ## Clustering
 Experiments were made with K-means clustering to see if it could provide us with meaningful groups for individuals based on the variables of interest. Two seperate set of clusters were made with different sets of variables. Clustering 1 used age_group, cspgroup, W, OCCU1, travdom and dispovp. Clustering 2 used age_group, dispovp and W. Categorical variables are converted to numeric since K-means clustering only works for numerical variables. We chose to give missing values the mean of the column and lastly we normalize the numerical variables for better results. Elbow plots and experimentation with different numbers of clusters was used and 3 clusters were chosen as a best fit for this data based on the elbow plots and exploration of cluster evaluations.
