@@ -50,7 +50,7 @@ class(allgreI_filtered_copy_test$immobil)
 class(allgreI_filtered_copy_train$immobil)
 ```
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 model_tree10 <- rpart(
   immobil ~ age + dispovp + W,  # Drei erklärende Variablen
   data = allgreI_filtered_copy_train,      # Trainingsdatensatz
@@ -72,7 +72,7 @@ rpart.plot(model_tree10, type = 3, extra = 104, fallen.leaves = TRUE)
 ```
 
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 # Vorhersage auf den Testdaten
 pred_tree10 <- predict(model_tree10, newdata = allgreI_filtered_copy_test, type = "class")
 
@@ -114,11 +114,11 @@ cat("F1-Score:", f1_score, "\n")
 ```{r, echo=FALSE}
 # Tabelle erstellen
 table_data <- data.frame(
-  `used variables` = c("age_group + dispovp + W", "age + dispo + W", "has_car + OCCU1 + W"),
-  Accuracy = c(0.85, 0.90, 0.85),
-  Precision = c(0, 0.45, 0),
-  Recall = c(NaN, 0.87, NaN),
-  `F1-Score` = c(NaN, 0.59, NaN)
+  `used variables` = c("age_group + dispovp + W", "age + dispovp + W", "has_car + OCCU1 + W"),
+  Accuracy = c(0.91, 0.90, 0.85),
+  Precision = c(0.44, 0.45, 0),
+  Recall = c(0.90, 0.87, NaN),
+  `F1-Score` = c(0.59, 0.59, NaN)
 )
 
 # Tabelle anzeigen
