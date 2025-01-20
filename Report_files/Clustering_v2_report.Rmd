@@ -15,6 +15,7 @@ library(dplyr)
 library(caret)
 library(cluster)
 library(ggplot2)
+library(patchwork)
 ```
 
 ```{r, include=FALSE}
