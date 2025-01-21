@@ -1,0 +1,128 @@
+---
+title: "Mobility_behaviour_Decision_Tree_4th_Try"
+output: html_document
+date: "2025-01-14"
+header-includes:
+- \setbeamerfont{verbatim}{size=\footnotesize}
+---
+
+```{r setup-tree3, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars-tree3, include=FALSE}
+
+library(skimr)
+library(dplyr)
+library(randomForest)
+library(rpart)  # Für den Entscheidungsbaum
+library(rpart.plot)  # Für die Visualisierung des Entscheidungsbaums
+library(caret)
+
+
+load("allgreI.RData") 
+load("allgreI_with_W.RData")
+load("allgreI_filtered.RData")
+
+# Merge allgreI_filtered mit der Spalte age aus allgreI
+# Erstelle eine Kopie des Datensatzes
+allgreI_filtered_copy <- allgreI_filtered
+
+# Verwende ab hier die Kopie `allgreI_filtered_copy` für weitere Analysen
+
+
+
+# Zufällige Teilung von allgreI in Trainings- und Testdaten (70%-30%)
+set.seed(123) # Für Reproduzierbarkeit
+
+# Erzeuge zufällige Indizes für die Trainingsdaten von allgreI
+train_indices <- sample(1:nrow(allgreI), size = 0.7 * nrow(allgreI))
+
+# Teile allgreI auf
+allgreI_filtered_copy_train <- allgreI_filtered_copy[train_indices, ]
+allgreI_filtered_copy_test <- allgreI_filtered_copy[-train_indices, ]
+
+# Bestätige die Aufteilung
+dim(allgreI_filtered_copy_train) # Zeigt die Dimensionen der Trainingsdaten
+dim(allgreI_filtered_copy_test)  # Zeigt die Dimensionen der Testdaten
+
+class(allgreI_filtered_copy_test$immobil)
+class(allgreI_filtered_copy_train$immobil)
+```
+
+```{r, include=FALSE}
+model_tree10 <- rpart(
+  immobil ~ age + dispovp + W,  # Drei erklärende Variablen
+  data = allgreI_filtered_copy_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_tree10)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_tree10)
+```
+\centering
+```{r, echo=FALSE, , out.width='60%', out.height='60%'}
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_tree10, type = 3, extra = 104, fallen.leaves = TRUE)
+
+```
+
+
+```{r, include=FALSE}
+# Vorhersage auf den Testdaten
+pred_tree10 <- predict(model_tree10, newdata = allgreI_filtered_copy_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_tree10, Actual = allgreI_filtered_copy_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_tree10, allgreI_filtered_copy_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+cat("Accuracy:", accuracy_tree, "\n")
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+
+
+\scriptsize
+```{r, echo=FALSE, out.width='50%', out.height='50%'}
+# Tabelle erstellen
+table_data <- data.frame(
+  `used variables` = c("age_group + dispovp + W", "age + dispovp + W", "has_car + OCCU1 + W"),
+  Accuracy = c(0.91, 0.90, 0.85),
+  Precision = c(0.44, 0.45, 0),
+  Recall = c(0.90, 0.87, NaN),
+  `F1-Score` = c(0.59, 0.59, NaN)
+)
+
+# Tabelle anzeigen
+print(table_data)
+```
+
+

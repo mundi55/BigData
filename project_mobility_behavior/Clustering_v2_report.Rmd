@@ -1,0 +1,178 @@
+---
+title: "Clustering_v2"
+author: "Mundi"
+date: "2025-01-15"
+output: html_document
+---
+
+```{r setup-clustering, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+# Load necessary libraries
+library(dplyr)
+library(caret)
+library(cluster)
+library(ggplot2)
+library(patchwork)
+```
+
+```{r, include=FALSE}
+# Load the data
+load("allgreI_clustering.RData")
+
+# Define consistent levels for dispovp
+dispovp_levels <- c("0", "1", "2", "3")
+
+# Clustering Experiment 1: Original Input Variables
+data_cluster_1 <- allgreI_filtered %>% 
+  select(immobil, age_group, cspgroup, W, OCCU1, travdom, dispovp) %>% 
+  mutate(dispovp = factor(dispovp, levels = dispovp_levels))
+```
+
+```{r, include=FALSE}
+# Preprocessing for Experiment 1
+data_cluster_1_processed <- data_cluster_1 %>% 
+  mutate(
+    immobil = as.numeric(as.factor(immobil)), # Keep immobil for visualization
+    age_group = as.numeric(as.factor(age_group)),
+    cspgroup = as.numeric(as.factor(cspgroup)),
+    W = as.numeric(as.factor(W)),
+    OCCU1 = as.numeric(as.factor(OCCU1)),
+    travdom = as.numeric(as.factor(travdom)),
+    dispovp = as.numeric(as.character(dispovp))
+  ) %>% 
+  mutate(across(everything(), ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+# Normalize data for Experiment 1 (exclude immobil from normalization)
+preproc_1 <- preProcess(data_cluster_1_processed %>% select(-immobil), method = c("center", "scale"))
+data_cluster_1_normalized <- predict(preproc_1, data_cluster_1_processed %>% select(-immobil))
+
+# Perform K-means clustering for Experiment 1
+set.seed(123)
+k_1 <- 3
+kmeans_result_1 <- kmeans(data_cluster_1_normalized, centers = k_1, nstart = 25)
+data_cluster_1_processed$cluster <- kmeans_result_1$cluster
+
+# Add age group labels
+data_cluster_1_processed$age_group <- factor(data_cluster_1$age_group, labels = c("0-20", "20-65", "65+"))
+```
+
+```{r, include=FALSE}
+# Clustering Experiment 2: Reduced Input Variables
+data_cluster_2 <- allgreI_filtered %>% 
+  select(immobil, dispovp, age_group, W) %>% 
+  mutate(dispovp = factor(dispovp, levels = dispovp_levels))
+```
+
+```{r, include=FALSE}
+# Preprocessing for Experiment 2
+data_cluster_2_processed <- data_cluster_2 %>% 
+  mutate(
+    immobil = as.numeric(as.factor(immobil)), # Keep immobil for visualization
+    dispovp = as.numeric(as.character(dispovp)),
+    W = as.numeric(as.factor(W))
+  ) %>% 
+  mutate(across(everything(), ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+# Normalize data for Experiment 2 (exclude immobil from normalization)
+preproc_2 <- preProcess(data_cluster_2_processed %>% select(-immobil), method = c("center", "scale"))
+data_cluster_2_normalized <- predict(preproc_2, data_cluster_2_processed %>% select(-immobil))
+
+# Perform K-means clustering for Experiment 2
+set.seed(123)
+k_2 <- 3
+kmeans_result_2 <- kmeans(data_cluster_2_normalized, centers = k_2, nstart = 25)
+data_cluster_2_processed$cluster <- kmeans_result_2$cluster
+
+# Add age group labels
+data_cluster_2_processed$age_group <- factor(data_cluster_2$age_group, labels = c("0-20", "20-65", "65+"))
+
+```
+
+```{r, include=FALSE}
+# Save results for both experiments
+#save(data_cluster_1_processed, file = "data_cluster_1_with_clusters.RData")
+#save(data_cluster_2_processed, file = "data_cluster_2_with_clusters.RData")
+```
+
+```{r, include=FALSE}
+# Compare Clusters using PCA for Visualization
+# PCA for Experiment 1
+pca_result_1 <- prcomp(data_cluster_1_normalized, scale = TRUE)
+pca_data_1 <- as.data.frame(pca_result_1$x[, 1:2])
+pca_data_1$cluster <- as.factor(data_cluster_1_processed$cluster)
+```
+
+```{r, include=FALSE}
+# PCA for Experiment 2
+pca_result_2 <- prcomp(data_cluster_2_normalized, scale = TRUE)
+pca_data_2 <- as.data.frame(pca_result_2$x[, 1:2])
+pca_data_2$cluster <- as.factor(data_cluster_2_processed$cluster)
+```
+\centering
+```{r, echo=FALSE, out.width='48%', out.height='48%'}
+# Visualization for Experiment 1
+plot_pca1 <- ggplot(pca_data_1, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "PCA (Exp 1)", x = "Principal Component 1", y = "Principal Component 2")
+
+# Visualization for Experiment 2
+plot_pca2 <- ggplot(pca_data_2, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "PCA (Exp 2)", x = "Principal Component 1", y = "Principal Component 2")
+
+# Print PCA plots
+print(plot_pca1)
+print(plot_pca2)
+```
+\centering
+```{r, echo=FALSE, out.width='60%', out.height='60%'}
+# Visualization of immobil for Experiment 1
+plot_immobil1 <- ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = as.factor(immobil))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Immobil Exp1", x = "Cluster", y = "Proportion", fill = "Immobil")
+
+# Visualization of immobil for Experiment 2
+plot_immobil2 <- ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = as.factor(immobil))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Immobil Exp2", x = "Cluster", y = "Proportion", fill = "Immobil")
+
+# Visualization of dispovp for Experiment 1
+plot_dispovp1 <- ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = as.factor(dispovp))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "dispovp Exp1", x = "Cluster", y = "Proportion", fill = "dispovp")
+
+# Visualization of dispovp for Experiment 2
+plot_dispovp2 <- ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = as.factor(dispovp))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "dispovp Exp2", x = "Cluster", y = "Proportion", fill = "dispovp")
+
+# Visualization of age group for Experiment 1
+plot_age1 <- ggplot(data_cluster_1_processed, aes(x = as.factor(cluster), fill = as.factor(age_group))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Age Exp1", x = "Cluster", y = "Proportion", fill = "Age Group")
+
+# Visualization of age group for Experiment 2
+plot_age2 <- ggplot(data_cluster_2_processed, aes(x = as.factor(cluster), fill = as.factor(age_group))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Age Exp2", x = "Cluster", y = "Proportion", fill = "Age Group")
+
+# Combine immobil, dispovp, and age group plots into a 2x3 grid
+combined_plot <- (plot_immobil1 | plot_dispovp1 | plot_age1) / (plot_immobil2 | plot_dispovp2 | plot_age2)
+
+# Print the combined plot
+print(combined_plot)
+```
+
+
+

@@ -1,0 +1,224 @@
+---
+title: "Starting-Decision-Tree"
+output: html_document
+date: "2025-01-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars, include=FALSE}
+
+library(skimr)
+library(dplyr)
+library(randomForest)
+library(rpart)  # Für den Entscheidungsbaum
+library(rpart.plot)  # Für die Visualisierung des Entscheidungsbaums
+library(caret)
+
+
+# Load the necessary dataset
+load("data_togroup.RData")
+
+```
+
+```{r, include=FALSE}
+# Merge allgreI_filtered mit der Spalte age aus allgreI
+# Erstelle eine Kopie des Datensatzes
+
+# Verwende ab hier die Kopie `allgreI_filtered_copy` für weitere Analysen
+
+
+
+# Splits de data_togroup dataset in training en test (70%-30%)
+set.seed(123) # Voor reproduceerbaarheid
+
+train_indices <- sample(1:nrow(data_togroup), size = 0.7 * nrow(data_togroup))
+
+data_togroup_train <- data_togroup[train_indices, ]
+data_togroup_test <- data_togroup[-train_indices, ]
+
+# Controleer de splitsing
+dim(data_togroup_train)
+dim(data_togroup_test)
+
+str(data_togroup_test)
+
+```
+\centering
+```{r, echo = FALSE, out.width='50%', out.height='50%'}
+# Bouw de beslissingsboom
+model_treeBaseModel0 <- rpart(
+  immobil ~ csp + sexe + has_car + age + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers,
+  data = data_togroup_train,
+  method = "class"
+)
+
+# Visualisatie van de beslissingsboom
+library(rpart.plot)
+rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
+
+```
+```{r, include=FALSE}
+#Now without age
+model_treeBaseModel0 <- rpart(
+  immobil ~ csp + sexe + has_car + TYPE_HAB + parking_diff + W + OCCU1 + travdom + nb_pers,  # Drei erklärende Variablen
+  data = data_togroup_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_treeBaseModel0)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_treeBaseModel0)
+
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_treeBaseModel0 <- predict(model_treeBaseModel0, newdata = data_togroup_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel0, Actual = data_togroup_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_treeBaseModel0, data_togroup_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+cat("Accuracy:", accuracy_tree, "\n")
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+```{r, include=FALSE}
+#Now without TYPE_HAB
+model_treeBaseModel0 <- rpart(
+  immobil ~ csp + sexe + has_car + parking_diff + W + OCCU1 + travdom + nb_pers,  # Drei erklärende Variablen
+  data = data_togroup_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_treeBaseModel0)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_treeBaseModel0)
+
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_treeBaseModel0 <- predict(model_treeBaseModel0, newdata = data_togroup_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel0, Actual = data_togroup_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_treeBaseModel0, data_togroup_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+cat("Accuracy:", accuracy_tree, "\n")
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+
+```{r, include=FALSE}
+#now without csp
+model_treeBaseModel0 <- rpart(
+  immobil ~ sexe + has_car + parking_diff + W + OCCU1 + travdom + nb_pers,  # Drei erklärende Variablen
+  data = data_togroup_train,      # Trainingsdatensatz
+  method = "class"          # Klassifikationsbaum
+)
+
+# Zeige die Struktur des Baumes an
+print(model_treeBaseModel0)
+
+# Zusammenfassung des Entscheidungsbaums
+summary(model_treeBaseModel0)
+
+# Visualisierung des Entscheidungsbaums
+library(rpart.plot)
+rpart.plot(model_treeBaseModel0, type = 3, extra = 104, fallen.leaves = TRUE)
+
+# Vorhersage auf den Testdaten
+pred_treeBaseModel0 <- predict(model_treeBaseModel0, newdata = data_togroup_test, type = "class")
+
+# Evaluierung der Modellgüte mit einer Konfusionsmatrix
+conf_matrix_tree <- table(Predicted = pred_treeBaseModel0, Actual = data_togroup_test$immobil)
+conf_matrix_tree
+
+
+#Test
+confusionMatrix(pred_treeBaseModel0, data_togroup_test$immobil)
+
+# Berechne die Genauigkeit (Accuracy)
+accuracy_tree <- sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+cat("Accuracy:", accuracy_tree, "\n")
+
+# Berechne Precision, Recall und F1-Score aus der Konfusionsmatrix
+
+# Extrahiere die Werte aus der Konfusionsmatrix
+TP <- conf_matrix_tree[2, 2]  # True Positives (richtig als 1 klassifizierte 1)
+FP <- conf_matrix_tree[1, 2]  # False Positives (fälschlich als 1 klassifizierte 0)
+TN <- conf_matrix_tree[1, 1]  # True Negatives (richtig als 0 klassifizierte 0)
+FN <- conf_matrix_tree[2, 1]  # False Negatives (fälschlich als 0 klassifizierte 1)
+
+# Berechne Precision (Präzision)
+precision <- TP / (TP + FP)
+cat("Precision:", precision, "\n")
+
+# Berechne Recall (Sensitivität)
+recall <- TP / (TP + FN)
+cat("Recall:", recall, "\n")
+
+# Berechne F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+cat("F1-Score:", f1_score, "\n")
+```
+
+
